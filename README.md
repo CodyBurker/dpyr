@@ -26,5 +26,11 @@ Goals:
 ### Symbolic column names
 - [x] Initialize column names as variables
 
+### Misc.
+- [ ] Publish to PyPi
+- [ ] Better documentation
+- [x] Add tests
+- [ ] Add CI/CD
+
 Generate docs:
 ```python pdoc --html dpyr --force```
