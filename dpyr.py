@@ -37,7 +37,7 @@ class DataFrameOperation:
             return self(other)
 
 
-class SelectOperation(DataFrameOperation):
+class select(DataFrameOperation):
     """
     Select columns from a DataFrame
     """
@@ -49,7 +49,7 @@ class SelectOperation(DataFrameOperation):
         return df.select(*self.args)
 
 
-class FilterOperation(DataFrameOperation):
+class filter(DataFrameOperation):
     """
     Filter rows from a DataFrame
     """
