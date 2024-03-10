@@ -15,12 +15,12 @@ Goals:
 ### Verbs
 - [x] `select`
 - [x] `filter`
-- [ ] `mutate` - this one might be difficult
-- [ ] `summarize`
+- [x] `mutate`
 - [ ] `group_by`
+- [ ] `summarize`
 - [ ] `arrange`
 - [ ] `distinct`
 - [ ] `rename`
 - [ ] `count`
-
+- [ ] Windows functions? Over, lag, lead, etc.
 ### 
