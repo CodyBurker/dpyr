@@ -6,11 +6,8 @@ class DataFrame(pl.DataFrame):
     """
 
     def __init__(self, *args, **kwargs):
-        if isinstance(args[0], pl.dataframe.group_by.GroupBy):
-            self.grouped = True
-            self.group_by = args[0]
-        else:
-            super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
+
 
     def __or__(self, other):
         """
@@ -19,6 +16,21 @@ class DataFrame(pl.DataFrame):
             
         polars_df = other(self)
         return DataFrame(polars_df)
+
+class column:
+    """
+    Wrapper class to make column references easier to write
+    """
+    def __init__(self):
+        pass
+
+    def __getattr__(self, name):
+        """
+        Get the column reference
+        """
+        return pl.col(name)
+
+c = column()
 
 class DataFrameOperation:
     """

@@ -23,4 +23,7 @@ Goals:
 - [ ] `rename`
 - [ ] `count`
 - [ ] Windows functions? Over, lag, lead, etc.
-### 
+### Symbolic column names
+- [ ] Initialize column names as variables
+- [ ] Detect collisions
+- [ ] Detect collisions with other dataframes

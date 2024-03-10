@@ -1,3 +1,5 @@
 polars
 pandas
 ipykernel
+pandas
+pyarrow
