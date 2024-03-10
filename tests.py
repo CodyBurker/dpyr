@@ -11,12 +11,14 @@ def compare_dpyr_polars(dpyr_result, polars_result):
 
 class TestDpyr(unittest.TestCase):
     def setUp(self):
-        self.dpyr = DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
-        self.polars = pl.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+        base_df = {"a": [1, 2, 3], "b": [4, 5, 6],"test col": [1, 2, 3]}
+        self.dpyr = DataFrame(base_df)
+        self.polars = pl.DataFrame(base_df)
 
     def test_accessors(self):
         self.assertEqual(str(pl.col('a')), str(c.a))
         self.assertEqual(str(pl.col('a') > 1), str(c.a > 1))
+        self.assertEqual(str(pl.col('test col')), str(c.test__col))
 
     def test_select(self):
         dpyr_result = self.dpyr | select(c.a)
