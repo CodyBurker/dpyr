@@ -24,4 +24,5 @@ jobs:
           git config --global user.email 'codyburker@gmail.com'
           git add .
           git commit -m "Update documentation (auto)"
-          git push
+      name: Push
+      run: git push
