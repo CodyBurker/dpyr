@@ -23,7 +23,7 @@ Goals:
 - [x] `mutate`
 - [ ] `group_by`
 - [ ] `summarize`
-- [ ] `arrange` - Need to add descending order, preferably via a `desc` function or - operator
+- [x] `arrange`
 - [ ] `distinct`
 - [ ] `rename`
 - [ ] `count`
