@@ -11,4 +11,4 @@ jobs:
       - run: pip install -r ${{ github.workspace }}/requirements.txt
       - run: python3 -m unittest
       - run: pip install pdoc3
-      - run: cd  pdoc --html ${{ github.workspace }}/dpyr
+      - run: pdoc --html ${{ github.workspace }}/dpyr
