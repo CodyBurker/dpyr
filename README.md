@@ -3,6 +3,8 @@ A wrapper to introduce dplyr like syntax for data manipulation to pandas and pol
 
 Documentation [here](https://html-preview.github.io/?url=https://github.com/CodyBurker/dpyr/blob/main/html/dpyr.html)
 
+Example notebook [here](https://github.com/CodyBurker/dpyr/blob/main/demo.ipynb)
+
 Goals: 
 * Symbolic names for columns
     - `df | select(x, y)`
