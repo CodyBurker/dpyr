@@ -1,5 +1,8 @@
 # DPYR
 A wrapper to introduce dplyr like syntax for data manipulation to pandas and polars.
+
+Documentation [here](https://html-preview.github.io/?url=https://github.com/CodyBurker/dpyr/blob/main/html/dpyr.html)
+
 Goals: 
 * Symbolic names for columns
     - `df | select(x, y)`
@@ -38,3 +41,5 @@ Goals:
 
 Generate docs:
 ```python pdoc --html dpyr --force```
+Unit test:
+```python -m unittest```

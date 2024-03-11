@@ -146,6 +146,12 @@ class head(DataFrameOperation):
         return df.head(*self.args)
 
 def read_csv(*args, **kwargs):
+    """
+    Reads a csv file into a DataFrame. This is equivalent to, and wrapper of, polars' read_csv method. Returns a dpyr DataFrame. For example:
+    ```python
+    df = read_csv("test.csv")
+    ```
+    """
     pl_df = pl.read_csv(*args, **kwargs)
     return DataFrame(pl_df)
 
