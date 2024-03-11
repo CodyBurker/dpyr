@@ -10,7 +10,7 @@ jobs:
       - run: ls ${{ github.workspace }}
       - run: pip install -r ${{ github.workspace }}/requirements.txt
       - run: python3 -m unittest
-  Explore-GitHub-Actions:
+  Create-Documentation:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
@@ -21,7 +21,7 @@ jobs:
       - name: Commit and push changes
         run: |
           git config --global user.name 'GitHub Actions'
-          git config --global user.email ''
+          git config --global user.email 'codyburker@gmail.com'
           git add .
           git commit -m "Update documentation (auto)"
           git push
