@@ -56,3 +56,4 @@ class TestDpyr(unittest.TestCase):
         dpyr_result = read_csv("iris.csv")
         polars_result = pl.read_csv("iris.csv")
         compare_dpyr_polars(dpyr_result, polars_result)
+        
