@@ -6,7 +6,9 @@ class DataFrame(pl.DataFrame):
     ```python
     df = DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
     ```
-    You can then use all native polars methods on the DataFrame, such as:
+
+    You can then use all native polars methods on the DataFrame, such as: 
+    
     ```python
     df.write_csv("test.csv")
     ```
