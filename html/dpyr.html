@@ -183,6 +183,32 @@ def read_csv(*args, **kwargs):
     pl_df = pl.read_csv(*args, **kwargs)
     return DataFrame(pl_df)
 
+class preview(DataFrameOperation):
+    &#34;&#34;&#34;
+    Get a preview of the first n rows of a DataFrame, and display it in a notebook, and pass dataframe on to next operation or assignment. 
+    ```python
+    df = df \
+        | preview(&#34;Data preview&#34;) \
+        | select(c.column_1, c.column_2) \
+        | preview(&#34;Data preview 2&#34;)
+        
+    # df will be the same as it would without the preview operations:
+    df2 = df | select(c.column_1, c.column_2)
+    ```
+    &#34;&#34;&#34;
+    def __init__(self, label: str,n=5):
+        self.n = n
+        self.label = label
+
+    def __call__(self, df):
+        &#34;&#34;&#34;
+        Apply the preview operation on the DataFrame
+        &#34;&#34;&#34;
+        if self.label:
+            print(self.label)
+        display(df.head(self.n))
+        return df
+
 # class group_by(DataFrameOperation):
 #     &#34;&#34;&#34;
 #     Group a DataFrame
@@ -346,6 +372,7 @@ def read_csv(*args, **kwargs):
 <li><a title="dpyr.filter" href="#dpyr.filter">filter</a></li>
 <li><a title="dpyr.head" href="#dpyr.head">head</a></li>
 <li><a title="dpyr.mutate" href="#dpyr.mutate">mutate</a></li>
+<li><a title="dpyr.preview" href="#dpyr.preview">preview</a></li>
 <li><a title="dpyr.select" href="#dpyr.select">select</a></li>
 </ul>
 </dd>
@@ -498,6 +525,52 @@ def read_csv(*args, **kwargs):
 <li><a title="dpyr.DataFrameOperation" href="#dpyr.DataFrameOperation">DataFrameOperation</a></li>
 </ul>
 </dd>
+<dt id="dpyr.preview"><code class="flex name class">
+<span>class <span class="ident">preview</span></span>
+<span>(</span><span>label: str, n=5)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get a preview of the first n rows of a DataFrame, and display it in a notebook, and pass dataframe on to next operation or assignment. </p>
+<pre><code class="language-python">df = df         | preview(&quot;Data preview&quot;)         | select(c.column_1, c.column_2)         | preview(&quot;Data preview 2&quot;)
+
+# df will be the same as it would without the preview operations:
+df2 = df | select(c.column_1, c.column_2)
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class preview(DataFrameOperation):
+    &#34;&#34;&#34;
+    Get a preview of the first n rows of a DataFrame, and display it in a notebook, and pass dataframe on to next operation or assignment. 
+    ```python
+    df = df \
+        | preview(&#34;Data preview&#34;) \
+        | select(c.column_1, c.column_2) \
+        | preview(&#34;Data preview 2&#34;)
+        
+    # df will be the same as it would without the preview operations:
+    df2 = df | select(c.column_1, c.column_2)
+    ```
+    &#34;&#34;&#34;
+    def __init__(self, label: str,n=5):
+        self.n = n
+        self.label = label
+
+    def __call__(self, df):
+        &#34;&#34;&#34;
+        Apply the preview operation on the DataFrame
+        &#34;&#34;&#34;
+        if self.label:
+            print(self.label)
+        display(df.head(self.n))
+        return df</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="dpyr.DataFrameOperation" href="#dpyr.DataFrameOperation">DataFrameOperation</a></li>
+</ul>
+</dd>
 <dt id="dpyr.select"><code class="flex name class">
 <span>class <span class="ident">select</span></span>
 <span>(</span><span>*args, **kwargs)</span>
@@ -565,6 +638,9 @@ def read_csv(*args, **kwargs):
 </li>
 <li>
 <h4><code><a title="dpyr.mutate" href="#dpyr.mutate">mutate</a></code></h4>
+</li>
+<li>
+<h4><code><a title="dpyr.preview" href="#dpyr.preview">preview</a></code></h4>
 </li>
 <li>
 <h4><code><a title="dpyr.select" href="#dpyr.select">select</a></code></h4>
