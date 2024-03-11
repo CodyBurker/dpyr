@@ -50,7 +50,8 @@ class DataFrame(pl.DataFrame):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
+        # If column names contain periods, replace them with underscores
+        self.columns = [col.replace(&#39;.&#39;, &#39;_&#39;) for col in self.columns]
 
     def __or__(self, other):
         &#34;&#34;&#34;
@@ -144,6 +145,38 @@ class mutate(DataFrameOperation):
         &#34;&#34;&#34;
         return df.with_columns(**self.kwargs)
 
+class arrange(DataFrameOperation):
+    &#34;&#34;&#34;
+    Arrange the rows in a DataFrame. This is equivalent to, and wrapper of, polars&#39; sort method, but expects a dataframe to be piped to it. For example:
+    ```python
+    df = df | arrange(c.column_1, c.column_2)
+    ```
+    &#34;&#34;&#34;
+
+    def __call__(self, df):
+        &#34;&#34;&#34;
+        Apply the arrange operation on the DataFrame
+        &#34;&#34;&#34;
+        return df.sort(*self.args, *self.kwargs)
+
+class head(DataFrameOperation):
+    &#34;&#34;&#34;
+    Get the first n rows of a DataFrame. This is equivalent to, and wrapper of, polars&#39; head method, but expects a dataframe to be piped to it. For example:
+    ```python
+    df = df | head(5)
+    ```
+    &#34;&#34;&#34;
+
+    def __call__(self, df):
+        &#34;&#34;&#34;
+        Apply the head operation on the DataFrame
+        &#34;&#34;&#34;
+        return df.head(*self.args)
+
+def read_csv(*args, **kwargs):
+    pl_df = pl.read_csv(*args, **kwargs)
+    return DataFrame(pl_df)
+
 # class group_by(DataFrameOperation):
 #     &#34;&#34;&#34;
 #     Group a DataFrame
@@ -181,6 +214,23 @@ class mutate(DataFrameOperation):
 <section>
 </section>
 <section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="dpyr.read_csv"><code class="name flex">
+<span>def <span class="ident">read_csv</span></span>(<span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def read_csv(*args, **kwargs):
+    pl_df = pl.read_csv(*args, **kwargs)
+    return DataFrame(pl_df)</code></pre>
+</details>
+</dd>
+</dl>
 </section>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
@@ -228,7 +278,8 @@ class mutate(DataFrameOperation):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
+        # If column names contain periods, replace them with underscores
+        self.columns = [col.replace(&#39;.&#39;, &#39;_&#39;) for col in self.columns]
 
     def __or__(self, other):
         &#34;&#34;&#34;
@@ -277,9 +328,42 @@ class mutate(DataFrameOperation):
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
+<li><a title="dpyr.arrange" href="#dpyr.arrange">arrange</a></li>
 <li><a title="dpyr.filter" href="#dpyr.filter">filter</a></li>
+<li><a title="dpyr.head" href="#dpyr.head">head</a></li>
 <li><a title="dpyr.mutate" href="#dpyr.mutate">mutate</a></li>
 <li><a title="dpyr.select" href="#dpyr.select">select</a></li>
+</ul>
+</dd>
+<dt id="dpyr.arrange"><code class="flex name class">
+<span>class <span class="ident">arrange</span></span>
+<span>(</span><span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Arrange the rows in a DataFrame. This is equivalent to, and wrapper of, polars' sort method, but expects a dataframe to be piped to it. For example:</p>
+<pre><code class="language-python">df = df | arrange(c.column_1, c.column_2)
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class arrange(DataFrameOperation):
+    &#34;&#34;&#34;
+    Arrange the rows in a DataFrame. This is equivalent to, and wrapper of, polars&#39; sort method, but expects a dataframe to be piped to it. For example:
+    ```python
+    df = df | arrange(c.column_1, c.column_2)
+    ```
+    &#34;&#34;&#34;
+
+    def __call__(self, df):
+        &#34;&#34;&#34;
+        Apply the arrange operation on the DataFrame
+        &#34;&#34;&#34;
+        return df.sort(*self.args, *self.kwargs)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="dpyr.DataFrameOperation" href="#dpyr.DataFrameOperation">DataFrameOperation</a></li>
 </ul>
 </dd>
 <dt id="dpyr.column"><code class="flex name class">
@@ -332,6 +416,37 @@ class mutate(DataFrameOperation):
         Apply the filter operation on the DataFrame
         &#34;&#34;&#34;
         return df.filter(*self.args)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="dpyr.DataFrameOperation" href="#dpyr.DataFrameOperation">DataFrameOperation</a></li>
+</ul>
+</dd>
+<dt id="dpyr.head"><code class="flex name class">
+<span>class <span class="ident">head</span></span>
+<span>(</span><span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the first n rows of a DataFrame. This is equivalent to, and wrapper of, polars' head method, but expects a dataframe to be piped to it. For example:</p>
+<pre><code class="language-python">df = df | head(5)
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class head(DataFrameOperation):
+    &#34;&#34;&#34;
+    Get the first n rows of a DataFrame. This is equivalent to, and wrapper of, polars&#39; head method, but expects a dataframe to be piped to it. For example:
+    ```python
+    df = df | head(5)
+    ```
+    &#34;&#34;&#34;
+
+    def __call__(self, df):
+        &#34;&#34;&#34;
+        Apply the head operation on the DataFrame
+        &#34;&#34;&#34;
+        return df.head(*self.args)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -409,6 +524,11 @@ class mutate(DataFrameOperation):
 <ul></ul>
 </div>
 <ul id="index">
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="dpyr.read_csv" href="#dpyr.read_csv">read_csv</a></code></li>
+</ul>
+</li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
@@ -418,10 +538,16 @@ class mutate(DataFrameOperation):
 <h4><code><a title="dpyr.DataFrameOperation" href="#dpyr.DataFrameOperation">DataFrameOperation</a></code></h4>
 </li>
 <li>
+<h4><code><a title="dpyr.arrange" href="#dpyr.arrange">arrange</a></code></h4>
+</li>
+<li>
 <h4><code><a title="dpyr.column" href="#dpyr.column">column</a></code></h4>
 </li>
 <li>
 <h4><code><a title="dpyr.filter" href="#dpyr.filter">filter</a></code></h4>
+</li>
+<li>
+<h4><code><a title="dpyr.head" href="#dpyr.head">head</a></code></h4>
 </li>
 <li>
 <h4><code><a title="dpyr.mutate" href="#dpyr.mutate">mutate</a></code></h4>

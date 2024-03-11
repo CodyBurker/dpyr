@@ -18,10 +18,14 @@ Goals:
 - [x] `mutate`
 - [ ] `group_by`
 - [ ] `summarize`
-- [ ] `arrange`
+- [ ] `arrange` - Need to add descending order, preferably via a `desc` function or - operator
 - [ ] `distinct`
 - [ ] `rename`
 - [ ] `count`
+- [x] `head`
+- [ ] `tail`
+- [ ] `sample_n`
+- [ ] `join`
 - [ ] Windows functions? Over, lag, lead, etc.
 ### Symbolic column names
 - [x] Initialize column names as variables

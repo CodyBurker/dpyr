@@ -22,7 +22,8 @@ class DataFrame(pl.DataFrame):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
+        # If column names contain periods, replace them with underscores
+        self.columns = [col.replace('.', '_') for col in self.columns]
 
     def __or__(self, other):
         """
@@ -115,6 +116,38 @@ class mutate(DataFrameOperation):
         Apply the mutate operation on the DataFrame
         """
         return df.with_columns(**self.kwargs)
+
+class arrange(DataFrameOperation):
+    """
+    Arrange the rows in a DataFrame. This is equivalent to, and wrapper of, polars' sort method, but expects a dataframe to be piped to it. For example:
+    ```python
+    df = df | arrange(c.column_1, c.column_2)
+    ```
+    """
+
+    def __call__(self, df):
+        """
+        Apply the arrange operation on the DataFrame
+        """
+        return df.sort(*self.args, *self.kwargs)
+
+class head(DataFrameOperation):
+    """
+    Get the first n rows of a DataFrame. This is equivalent to, and wrapper of, polars' head method, but expects a dataframe to be piped to it. For example:
+    ```python
+    df = df | head(5)
+    ```
+    """
+
+    def __call__(self, df):
+        """
+        Apply the head operation on the DataFrame
+        """
+        return df.head(*self.args)
+
+def read_csv(*args, **kwargs):
+    pl_df = pl.read_csv(*args, **kwargs)
+    return DataFrame(pl_df)
 
 # class group_by(DataFrameOperation):
 #     """
