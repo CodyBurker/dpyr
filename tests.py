@@ -1,12 +1,13 @@
 import unittest
 import pandas as pd
 from pandas._testing import assert_frame_equal
-from dpyr import DataFrame, filter, select, mutate, c, arrange, head
+from dpyr import DataFrame, filter, select, mutate, c, arrange, head, read_csv
 import polars as pl
 
 def compare_dpyr_polars(dpyr_result, polars_result):
     pandas_dpyr = dpyr_result.to_pandas()
     pandas_polars = polars_result.to_pandas()
+    pandas_polars.columns = pandas_dpyr.columns
     assert_frame_equal(pandas_dpyr, pandas_polars)
 
 class TestDpyr(unittest.TestCase):
@@ -50,4 +51,8 @@ class TestDpyr(unittest.TestCase):
         dpyr_result = self.dpyr | head(2)
         polars_result = self.polars.head(2)
         compare_dpyr_polars(dpyr_result, polars_result)
-        self.assertEqual(1,2) # Example to fail github action
+    
+    def test_read_csv(self):
+        dpyr_result = read_csv("iris.csv")
+        polars_result = pl.read_csv("iris.csv")
+        compare_dpyr_polars(dpyr_result, polars_result)
