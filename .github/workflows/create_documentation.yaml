@@ -7,8 +7,8 @@ jobs:
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
-      - run: echo ls ${{ github.workspace }}
+      - run: ls ${{ github.workspace }}
       - run: pip install -r ${{ github.workspace }}/requirements.txt
       - run: python3 -m unittest
       - run: pip install pdoc3
-      - run: pdoc --html dpyr
+      - run: cd  pdoc --html {{ github.workspace }}/dpyr
