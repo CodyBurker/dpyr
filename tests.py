@@ -50,3 +50,4 @@ class TestDpyr(unittest.TestCase):
         dpyr_result = self.dpyr | head(2)
         polars_result = self.polars.head(2)
         compare_dpyr_polars(dpyr_result, polars_result)
+        self.assertEqual(1,2) # Example to fail github action
