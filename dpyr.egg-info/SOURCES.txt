@@ -1,0 +1,10 @@
+LICENSE
+README.md
+setup.py
+dpyr/__init__.py
+dpyr/dpyr.py
+dpyr.egg-info/PKG-INFO
+dpyr.egg-info/SOURCES.txt
+dpyr.egg-info/dependency_links.txt
+dpyr.egg-info/requires.txt
+dpyr.egg-info/top_level.txt

@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: dpyr
+Version: 0.0.2
+Summary: A dplyr-like interface for polars.
+Home-page: https://html-preview.github.io/?url=https://github.com/CodyBurker/dpyr/blob/main/html/dpyr.html
+Author: Cody Burker
+Author-email: codyburker@gmail.com
+License: BSD 2-clause
+Classifier: Development Status :: 1 - Planning
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: Python :: 3
+License-File: LICENSE
