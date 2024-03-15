@@ -24,8 +24,8 @@ Goals:
 - [ ] `group_by`
 - [ ] `summarize`
 - [x] `arrange`
-- [ ] `distinct`
-- [ ] `rename`
+- [x] `distinct`
+- [x] `rename`
 - [ ] `count`
 - [x] `head`
 - [ ] `tail`

@@ -17,9 +17,14 @@ class TestDpyr(unittest.TestCase):
         self.polars = pl.DataFrame(base_df)
 
     def test_accessors(self):
-        self.assertEqual(str(pl.col('a')), str(c.a))
-        self.assertEqual(str(pl.col('a') > 1), str(c.a > 1))
-        self.assertEqual(str(pl.col('test col')), str(c.test__col))
+        tests = [
+            (pl.col('a'), c.a),
+            (pl.col('a') > 1, c.a > 1),
+            (pl.col('test col'), c.test__col)
+        ]
+        for i, (polars_expr, dpyr_expr) in enumerate(tests):
+            with self.subTest(i=i):
+                self.assertEqual(str(polars_expr), str(dpyr_expr))
 
     def test_select(self):
         dpyr_result = self.dpyr | select(c.a)
@@ -70,3 +75,13 @@ class TestDpyr(unittest.TestCase):
     def test_distinct_errors(self):
         with self.assertRaises(ValueError):
             self.dpyr | distinct(c.a +  c.b)
+    
+    def test_rename(self):
+        dpyr_result = self.dpyr | rename(new_name = c.a, new_name_2 = c.b, new_name_3 = "test col")
+        polars_result = self.polars.rename({"a": "new_name", "b": "new_name_2", "test col": "new_name_3"})
+        compare_dpyr_polars(dpyr_result, polars_result)
+    
+    def test_rename_errors(self):
+        with self.assertRaises(ValueError) as cm:
+            self.dpyr | rename(new_name = c.nonexistent_col)
+        self.assertEqual(str(cm.exception), "Column nonexistent_col does not exist")

@@ -211,20 +211,75 @@ class distinct(DataFrameOperation):
         # If not, raise an error.
         parsed_args = []
         for arg in self.args:
-            if not isinstance(arg, str):
-                # Check if it is a polars column.
-                if isinstance(arg, pl.expr.expr.Expr):
-                    # Get all referenced columns
-                    cols = re.findall(r'col\("(.+?)"\)', str(arg))
-                    if len(cols) > 1:
-                        raise ValueError('Expeted column but got expression')
-                    else:
-                        arg = cols[0]
-                else:
-                    raise ValueError(f'Expected string or polars column, got {type(arg)}')
+            if not (isinstance(arg, str) or isinstance(arg, pl.expr.expr.Expr)):
+                raise ValueError('Expected column but got expression')
+            if isinstance(arg, pl.expr.expr.Expr):
+                arg = extract_column_name_from_expr(arg)
             parsed_args.append(arg)
         self.args = parsed_args
         return df.unique(*self.args, *self.kwargs)
+
+def extract_column_name_from_expr(expr):
+    """
+    Extracts the column name from a polars expression. For example:
+    ```python
+    extract_column_name_from_expr(c.column_1)
+    # 'column_1'
+    ```
+    """
+    if isinstance(expr, str):
+        return expr
+    # Check to make sure input is a polars expression
+    if not isinstance(expr, pl.expr.expr.Expr):
+        raise ValueError('Expected polars expression')
+    # Get all referenced columns
+    all_cols = re.findall(r'col\("(.+?)"\)', str(expr))
+    # Check to see if there is more than one column referenced
+    if len(all_cols) > 1:
+        raise ValueError('Expeted column but got expression')
+    # Return the column name
+    return all_cols[0]
+
+class rename(DataFrameOperation):
+    """
+    Rename columns in a DataFrame. For example:
+    ```python
+    print(df.columns)
+    # ['column_1', 'column_2']
+    df = df | rename(new_column = c.column_1, new_column_2 = "column_2")
+    print(df.columns)
+    # ['new_column', 'new_column_2']
+    ```
+    """
+
+    def __call__(self, df):
+        """
+        Apply the rename operation on the DataFrame
+        """
+        # Get current column names
+        cols = df.columns
+        # Ensure no args have been passed (only kwargs allowed)
+        if self.args:
+            raise ValueError('Only keyword arguments allowed')
+        # Ensure that all kwargs are valid column names
+        for k,v in self.kwargs.items():
+            v_parsed = extract_column_name_from_expr(v)
+            if v_parsed not in cols:
+                raise ValueError(f'Column {v_parsed} does not exist')
+        current_col_names = {k: k for k in cols}
+        # Renamed columns
+        renamed_cols = {k: v for k, v in self.kwargs.items()}
+        # Conver to strings if necessary
+        renamed_cols = {old: extract_column_name_from_expr(new) for old,new in renamed_cols.items()}
+        # Replace any values in current_col_names with the new column name if it exists
+        for new, old in renamed_cols.items():
+            if old in current_col_names:
+                current_col_names[old] = new
+        # Create the selector
+        selector = [pl.col(old).alias(new) for old, new in current_col_names.items()]
+        # Apply the selector to the DataFrame
+        return df.select(*selector)
+
 
 # class group_by(DataFrameOperation):
 #     """
