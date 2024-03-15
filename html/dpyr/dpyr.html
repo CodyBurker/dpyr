@@ -189,9 +189,9 @@ class preview(DataFrameOperation):
     &#34;&#34;&#34;
     Get a preview of the first n rows of a DataFrame, and display it in a notebook, and pass dataframe on to next operation or assignment. 
     ```python
-    df = df \
-        | preview(&#34;Data preview&#34;) \
-        | select(c.column_1, c.column_2) \
+    df = df \\
+        | preview(&#34;Data preview&#34;) \\
+        | select(c.column_1, c.column_2) \\
         | preview(&#34;Data preview 2&#34;)
         
     # df will be the same as it would without the preview operations:
@@ -535,7 +535,10 @@ class preview(DataFrameOperation):
 </code></dt>
 <dd>
 <div class="desc"><p>Get a preview of the first n rows of a DataFrame, and display it in a notebook, and pass dataframe on to next operation or assignment. </p>
-<pre><code class="language-python">df = df         | preview(&quot;Data preview&quot;)         | select(c.column_1, c.column_2)         | preview(&quot;Data preview 2&quot;)
+<pre><code class="language-python">df = df \
+    | preview(&quot;Data preview&quot;) \
+    | select(c.column_1, c.column_2) \
+    | preview(&quot;Data preview 2&quot;)
 
 # df will be the same as it would without the preview operations:
 df2 = df | select(c.column_1, c.column_2)
@@ -548,9 +551,9 @@ df2 = df | select(c.column_1, c.column_2)
     &#34;&#34;&#34;
     Get a preview of the first n rows of a DataFrame, and display it in a notebook, and pass dataframe on to next operation or assignment. 
     ```python
-    df = df \
-        | preview(&#34;Data preview&#34;) \
-        | select(c.column_1, c.column_2) \
+    df = df \\
+        | preview(&#34;Data preview&#34;) \\
+        | select(c.column_1, c.column_2) \\
         | preview(&#34;Data preview 2&#34;)
         
     # df will be the same as it would without the preview operations:
