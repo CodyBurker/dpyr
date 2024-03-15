@@ -161,9 +161,9 @@ class preview(DataFrameOperation):
     """
     Get a preview of the first n rows of a DataFrame, and display it in a notebook, and pass dataframe on to next operation or assignment. 
     ```python
-    df = df \
-        | preview("Data preview") \
-        | select(c.column_1, c.column_2) \
+    df = df \\
+        | preview("Data preview") \\
+        | select(c.column_1, c.column_2) \\
         | preview("Data preview 2")
         
     # df will be the same as it would without the preview operations:
