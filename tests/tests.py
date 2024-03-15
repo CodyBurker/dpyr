@@ -1,7 +1,7 @@
 import unittest
 import pandas as pd
 from pandas._testing import assert_frame_equal
-from dpyr import DataFrame, filter, select, mutate, c, arrange, head, read_csv
+from dpyr import *
 import polars as pl
 
 def compare_dpyr_polars(dpyr_result, polars_result):
@@ -56,4 +56,17 @@ class TestDpyr(unittest.TestCase):
         dpyr_result = read_csv("iris.csv")
         polars_result = pl.read_csv("iris.csv")
         compare_dpyr_polars(dpyr_result, polars_result)
-        
+    
+    def test_distinct(self):
+        dpyr_result = self.dpyr | distinct()  | arrange(c.a, c.b, c.test__col)
+        polars_result = self.polars.unique().sort("a", "b", "test col")
+        compare_dpyr_polars(dpyr_result, polars_result)
+    
+    def test_distinct_subset(self):
+        dpyr_result = (self.dpyr| select(c.a) | distinct(c.a) | arrange(c.a))
+        polars_result = self.polars.select('a').unique(["a"]).sort("a")
+        compare_dpyr_polars(dpyr_result, polars_result)
+    
+    def test_distinct_errors(self):
+        with self.assertRaises(ValueError):
+            self.dpyr | distinct(c.a +  c.b)

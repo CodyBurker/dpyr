@@ -1,4 +1,5 @@
 import polars as pl
+import re
 
 class DataFrame(pl.DataFrame):
     """
@@ -189,6 +190,41 @@ class preview(DataFrameOperation):
             print(self.label)
         display(df.head(self.n))
         return df
+
+class distinct(DataFrameOperation):
+    """
+    Get the distinct rows of a DataFrame. This is equivalent to, and wrapper of, polars' unique method, but expects a dataframe to be piped to it. For example:
+    ```python
+    df = df | distinct()
+    ```
+
+    ```python
+    df = df | distinct(c.column_1, c.column_2)
+    ```
+    """
+
+    def __call__(self, df):
+        """
+        Apply the distinct operation on the DataFrame
+        """
+        # Loop over self.args to confirm all are strings.
+        # If not, raise an error.
+        parsed_args = []
+        for arg in self.args:
+            if not isinstance(arg, str):
+                # Check if it is a polars column.
+                if isinstance(arg, pl.expr.expr.Expr):
+                    # Get all referenced columns
+                    cols = re.findall(r'col\("(.+?)"\)', str(arg))
+                    if len(cols) > 1:
+                        raise ValueError('Expeted column but got expression')
+                    else:
+                        arg = cols[0]
+                else:
+                    raise ValueError(f'Expected string or polars column, got {type(arg)}')
+            parsed_args.append(arg)
+        self.args = parsed_args
+        return df.unique(*self.args, *self.kwargs)
 
 # class group_by(DataFrameOperation):
 #     """
