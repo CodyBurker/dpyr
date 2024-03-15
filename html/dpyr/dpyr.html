@@ -27,6 +27,7 @@
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">import polars as pl
+import re
 
 class DataFrame(pl.DataFrame):
     &#34;&#34;&#34;
@@ -218,6 +219,41 @@ class preview(DataFrameOperation):
         display(df.head(self.n))
         return df
 
+class distinct(DataFrameOperation):
+    &#34;&#34;&#34;
+    Get the distinct rows of a DataFrame. This is equivalent to, and wrapper of, polars&#39; unique method, but expects a dataframe to be piped to it. For example:
+    ```python
+    df = df | distinct()
+    ```
+
+    ```python
+    df = df | distinct(c.column_1, c.column_2)
+    ```
+    &#34;&#34;&#34;
+
+    def __call__(self, df):
+        &#34;&#34;&#34;
+        Apply the distinct operation on the DataFrame
+        &#34;&#34;&#34;
+        # Loop over self.args to confirm all are strings.
+        # If not, raise an error.
+        parsed_args = []
+        for arg in self.args:
+            if not isinstance(arg, str):
+                # Check if it is a polars column.
+                if isinstance(arg, pl.expr.expr.Expr):
+                    # Get all referenced columns
+                    cols = re.findall(r&#39;col\(&#34;(.+?)&#34;\)&#39;, str(arg))
+                    if len(cols) &gt; 1:
+                        raise ValueError(&#39;Expeted column but got expression&#39;)
+                    else:
+                        arg = cols[0]
+                else:
+                    raise ValueError(f&#39;Expected string or polars column, got {type(arg)}&#39;)
+            parsed_args.append(arg)
+        self.args = parsed_args
+        return df.unique(*self.args, *self.kwargs)
+
 # class group_by(DataFrameOperation):
 #     &#34;&#34;&#34;
 #     Group a DataFrame
@@ -380,6 +416,7 @@ class preview(DataFrameOperation):
 <h3>Subclasses</h3>
 <ul class="hlist">
 <li><a title="dpyr.dpyr.arrange" href="#dpyr.dpyr.arrange">arrange</a></li>
+<li><a title="dpyr.dpyr.distinct" href="#dpyr.dpyr.distinct">distinct</a></li>
 <li><a title="dpyr.dpyr.filter" href="#dpyr.dpyr.filter">filter</a></li>
 <li><a title="dpyr.dpyr.head" href="#dpyr.dpyr.head">head</a></li>
 <li><a title="dpyr.dpyr.mutate" href="#dpyr.dpyr.mutate">mutate</a></li>
@@ -442,6 +479,60 @@ class preview(DataFrameOperation):
         name = name.replace(&#39;__&#39;, &#39; &#39;)
         return pl.col(name)</code></pre>
 </details>
+</dd>
+<dt id="dpyr.dpyr.distinct"><code class="flex name class">
+<span>class <span class="ident">distinct</span></span>
+<span>(</span><span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the distinct rows of a DataFrame. This is equivalent to, and wrapper of, polars' unique method, but expects a dataframe to be piped to it. For example:</p>
+<pre><code class="language-python">df = df | distinct()
+</code></pre>
+<pre><code class="language-python">df = df | distinct(c.column_1, c.column_2)
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class distinct(DataFrameOperation):
+    &#34;&#34;&#34;
+    Get the distinct rows of a DataFrame. This is equivalent to, and wrapper of, polars&#39; unique method, but expects a dataframe to be piped to it. For example:
+    ```python
+    df = df | distinct()
+    ```
+
+    ```python
+    df = df | distinct(c.column_1, c.column_2)
+    ```
+    &#34;&#34;&#34;
+
+    def __call__(self, df):
+        &#34;&#34;&#34;
+        Apply the distinct operation on the DataFrame
+        &#34;&#34;&#34;
+        # Loop over self.args to confirm all are strings.
+        # If not, raise an error.
+        parsed_args = []
+        for arg in self.args:
+            if not isinstance(arg, str):
+                # Check if it is a polars column.
+                if isinstance(arg, pl.expr.expr.Expr):
+                    # Get all referenced columns
+                    cols = re.findall(r&#39;col\(&#34;(.+?)&#34;\)&#39;, str(arg))
+                    if len(cols) &gt; 1:
+                        raise ValueError(&#39;Expeted column but got expression&#39;)
+                    else:
+                        arg = cols[0]
+                else:
+                    raise ValueError(f&#39;Expected string or polars column, got {type(arg)}&#39;)
+            parsed_args.append(arg)
+        self.args = parsed_args
+        return df.unique(*self.args, *self.kwargs)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="dpyr.dpyr.DataFrameOperation" href="#dpyr.dpyr.DataFrameOperation">DataFrameOperation</a></li>
+</ul>
 </dd>
 <dt id="dpyr.dpyr.filter"><code class="flex name class">
 <span>class <span class="ident">filter</span></span>
@@ -661,6 +752,9 @@ display(df2.head(5))
 </li>
 <li>
 <h4><code><a title="dpyr.dpyr.column" href="#dpyr.dpyr.column">column</a></code></h4>
+</li>
+<li>
+<h4><code><a title="dpyr.dpyr.distinct" href="#dpyr.dpyr.distinct">distinct</a></code></h4>
 </li>
 <li>
 <h4><code><a title="dpyr.dpyr.filter" href="#dpyr.dpyr.filter">filter</a></code></h4>
