@@ -37,7 +37,8 @@ Goals:
 
 ### Misc.
 - [ ] Publish to PyPi
-- [x] Better documentation
+- [x] Automated documentation via docstrings
+- [ ] Better documentation (via `__init__.py`)
 - [x] Add tests
 - [x] Add CI/CD
 
