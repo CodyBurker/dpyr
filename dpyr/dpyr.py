@@ -159,16 +159,23 @@ def read_csv(*args, **kwargs):
 
 class preview(DataFrameOperation):
     """
-    Get a preview of the first n rows of a DataFrame, and display it in a notebook, and pass dataframe on to next operation or assignment. 
-    ```python
-    df = df \\
-        | preview("Data preview") \\
-        | select(c.column_1, c.column_2) \\
-        | preview("Data preview 2")
-        
-    # df will be the same as it would without the preview operations:
-    df2 = df | select(c.column_1, c.column_2)
+    Get a preview of the first n rows of a DataFrame, and display it in a notebook, and pass dataframe on to next operation or assignment.  
+
+    ``` 
+    df2 = df
+         | preview("Data preview")
+         | select(c.column_1, c.column_2)
+         | preview("Data preview 2")
     ```
+    This code is the same as:
+    ```
+    print('Data preview')
+    display(df.head(5))
+    df2 = df.select("column_1", "column_2")
+    print('Data preview 2')
+    display(df2.head(5))
+    ```
+    The intent is to allow for previewing data in a notebook while developing a pipeline of operations.
     """
     def __init__(self, label: str,n=5):
         self.n = n

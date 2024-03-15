@@ -37,9 +37,9 @@ Goals:
 
 ### Misc.
 - [ ] Publish to PyPi
-- [ ] Better documentation
+- [x] Better documentation
 - [x] Add tests
-- [ ] Add CI/CD
+- [x] Add CI/CD
 
 Generate docs:
 ```python pdoc --html dpyr --force```

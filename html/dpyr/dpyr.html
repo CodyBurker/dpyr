@@ -187,16 +187,23 @@ def read_csv(*args, **kwargs):
 
 class preview(DataFrameOperation):
     &#34;&#34;&#34;
-    Get a preview of the first n rows of a DataFrame, and display it in a notebook, and pass dataframe on to next operation or assignment. 
-    ```python
-    df = df \
-        | preview(&#34;Data preview&#34;) \
-        | select(c.column_1, c.column_2) \
-        | preview(&#34;Data preview 2&#34;)
-        
-    # df will be the same as it would without the preview operations:
-    df2 = df | select(c.column_1, c.column_2)
+    Get a preview of the first n rows of a DataFrame, and display it in a notebook, and pass dataframe on to next operation or assignment.  
+
+    ``` 
+    df2 = df
+         | preview(&#34;Data preview&#34;)
+         | select(c.column_1, c.column_2)
+         | preview(&#34;Data preview 2&#34;)
     ```
+    This code is the same as:
+    ```
+    print(&#39;Data preview&#39;)
+    display(df.head(5))
+    df2 = df.select(&#34;column_1&#34;, &#34;column_2&#34;)
+    print(&#39;Data preview 2&#39;)
+    display(df2.head(5))
+    ```
+    The intent is to allow for previewing data in a notebook while developing a pipeline of operations.
     &#34;&#34;&#34;
     def __init__(self, label: str,n=5):
         self.n = n
@@ -534,28 +541,44 @@ class preview(DataFrameOperation):
 <span>(</span><span>label: str, n=5)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Get a preview of the first n rows of a DataFrame, and display it in a notebook, and pass dataframe on to next operation or assignment. </p>
-<pre><code class="language-python">df = df         | preview(&quot;Data preview&quot;)         | select(c.column_1, c.column_2)         | preview(&quot;Data preview 2&quot;)
-
-# df will be the same as it would without the preview operations:
-df2 = df | select(c.column_1, c.column_2)
-</code></pre></div>
+<div class="desc"><p>Get a preview of the first n rows of a DataFrame, and display it in a notebook, and pass dataframe on to next operation or assignment.
+</p>
+<pre><code>df2 = df
+     | preview(&quot;Data preview&quot;)
+     | select(c.column_1, c.column_2)
+     | preview(&quot;Data preview 2&quot;)
+</code></pre>
+<p>This code is the same as:</p>
+<pre><code>print('Data preview')
+display(df.head(5))
+df2 = df.select(&quot;column_1&quot;, &quot;column_2&quot;)
+print('Data preview 2')
+display(df2.head(5))
+</code></pre>
+<p>The intent is to allow for previewing data in a notebook while developing a pipeline of operations.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class preview(DataFrameOperation):
     &#34;&#34;&#34;
-    Get a preview of the first n rows of a DataFrame, and display it in a notebook, and pass dataframe on to next operation or assignment. 
-    ```python
-    df = df \
-        | preview(&#34;Data preview&#34;) \
-        | select(c.column_1, c.column_2) \
-        | preview(&#34;Data preview 2&#34;)
-        
-    # df will be the same as it would without the preview operations:
-    df2 = df | select(c.column_1, c.column_2)
+    Get a preview of the first n rows of a DataFrame, and display it in a notebook, and pass dataframe on to next operation or assignment.  
+
+    ``` 
+    df2 = df
+         | preview(&#34;Data preview&#34;)
+         | select(c.column_1, c.column_2)
+         | preview(&#34;Data preview 2&#34;)
     ```
+    This code is the same as:
+    ```
+    print(&#39;Data preview&#39;)
+    display(df.head(5))
+    df2 = df.select(&#34;column_1&#34;, &#34;column_2&#34;)
+    print(&#39;Data preview 2&#39;)
+    display(df2.head(5))
+    ```
+    The intent is to allow for previewing data in a notebook while developing a pipeline of operations.
     &#34;&#34;&#34;
     def __init__(self, label: str,n=5):
         self.n = n
