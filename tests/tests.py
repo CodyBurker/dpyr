@@ -85,3 +85,19 @@ class TestDpyr(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             self.dpyr | rename(new_name = c.nonexistent_col)
         self.assertEqual(str(cm.exception), "Column nonexistent_col does not exist")
+    
+    def test_count(self):
+        dpyr_result = (self.dpyr | count())
+        polars_result = self.polars.select(pl.len().alias('n'))
+        compare_dpyr_polars(dpyr_result, polars_result)
+    
+    def test_count_existing_col(self):
+        dpyr_result = self.dpyr | count(c.a) 
+        dpyr_result = dpyr_result.sort("a") # Don't want to use dpyr.sort in case it is broken
+        polars_result = self.polars.group_by("a").len().sort("a")
+        compare_dpyr_polars(dpyr_result, polars_result)
+    
+    def test_count_new_col(self):
+        dplyr_result = self.dpyr | count(new_col = c.a + c.b)
+        polars_result = self.polars.group_by(pl.col("a") + pl.col("b")).len()
+        compare_dpyr_polars(dplyr_result, polars_result)

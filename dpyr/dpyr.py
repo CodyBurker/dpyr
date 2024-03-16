@@ -279,7 +279,42 @@ class rename(DataFrameOperation):
         selector = [pl.col(old).alias(new) for old, new in current_col_names.items()]
         # Apply the selector to the DataFrame
         return df.select(*selector)
+class count(DataFrameOperation):
+    """
+    Count the number of rows in a DataFrame. 
+    """
 
+    def __call__(self, df):
+        """
+        Apply the count operation on the DataFrame, grouping by the column or expression passed.
+        """
+        group_by = []
+        if self.args:
+            for arg in self.args:
+                # Check if the argument is a string or a polars expression, if so add it to the group_by list
+                if isinstance(arg, str):
+                    group_by.append(pl.col(arg))
+                elif isinstance(arg, pl.expr.expr.Expr):
+                    group_by.append(arg)
+                else:
+                    raise ValueError(f'Expected column or expression but got {type(arg)}')
+        # Check if any kwargs are present
+        if self.kwargs:
+            # Loop over the kwargs and add them to the group_by list
+            for k,v in self.kwargs.items():
+                # Check if the argument is a string or a polars expression, if so add it to the group_by list
+                if isinstance(v, str):
+                    group_by.append(pl.col(v).alias(k))
+                elif isinstance(v, pl.expr.expr.Expr):
+                    group_by.append(v.alias(k))
+                else:
+                    raise ValueError(f'Expected column or expression but got {type(v)} with argument {k}')
+        # If no group_by columns are present, return the count of the entire DataFrame
+        if not group_by:
+            return df.select(pl.len().alias("n"))
+        # Otherwise, group by the columns and return the count
+        
+        return df.group_by(*group_by).len().rename({'len': 'n'})
 
 # class group_by(DataFrameOperation):
 #     """
