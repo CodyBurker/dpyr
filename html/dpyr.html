@@ -196,40 +196,19 @@ el.replaceWith(d);
     - names starting with a digit are prefixed with ``_``
 
     Columns whose sanitized name is a Python keyword, or that would overwrite
-    an existing global variable, are skipped and a ``UserWarning`` is issued.
-    Use ``df.cols[&#39;original name&#39;]`` to access those columns.
+    an existing **non-column** global variable, are skipped and a
+    ``UserWarning`` is issued.  Existing column-reference globals (``pl.Expr``
+    values) are silently updated so re-reading a file or reading a second file
+    with overlapping column names keeps globals in sync.
+    Use ``df.cols[&#39;original name&#39;]`` to access any skipped columns.
 
     Pass ``inject=False`` to disable injection entirely and use ``df.cols`` or
     the global ``c`` object for column references.
     &#34;&#34;&#34;
     pl_df = pl.read_csv(*args, **kwargs)
     df = DataFrame(pl_df)
-
     if inject:
-        frame = inspect.currentframe().f_back
-        caller_globals = frame.f_globals
-
-        skipped: list[tuple[str, str, str]] = []
-        for col in df.columns:
-            sanitized = _sanitize_col_name(col)
-            if keyword.iskeyword(sanitized):
-                skipped.append(
-                    (col, sanitized, f&#34;Python keyword — use df.cols[&#39;{col}&#39;]&#34;)
-                )
-                continue
-            if sanitized in caller_globals:
-                skipped.append((col, sanitized, &#34;already exists in namespace&#34;))
-                continue
-            caller_globals[sanitized] = pl.col(col)
-
-        if skipped:
-            lines = [
-                &#34;The following columns were not injected into the global namespace:&#34;
-            ]
-            for col, sanitized, reason in skipped:
-                lines.append(f&#34;  &#39;{col}&#39; → &#39;{sanitized}&#39;: {reason}&#34;)
-            warnings.warn(&#34;\n&#34;.join(lines), UserWarning, stacklevel=2)
-
+        _inject_into_frame(df, inspect.currentframe().f_back, warn_on_skip=True)
     return df</code></pre>
 </details>
 <div class="desc"><p>Read a CSV file into a dpyr DataFrame.</p>
@@ -246,8 +225,12 @@ df | filter(sepal_length &gt; 5.0) | select(species, sepal_length)
 <li>names starting with a digit are prefixed with <code>_</code></li>
 </ul>
 <p>Columns whose sanitized name is a Python keyword, or that would overwrite
-an existing global variable, are skipped and a <code>UserWarning</code> is issued.
-Use <code>df.cols['original name']</code> to access those columns.</p>
+an existing <strong>non-column</strong> global variable, are skipped and a
+<code>UserWarning</code> is issued.
+Existing column-reference globals (<code>pl.Expr</code>
+values) are silently updated so re-reading a file or reading a second file
+with overlapping column names keeps globals in sync.
+Use <code>df.cols['original name']</code> to access any skipped columns.</p>
 <p>Pass <code>inject=False</code> to disable injection entirely and use <code>df.cols</code> or
 the global <code>c</code> object for column references.</p></div>
 </dd>
@@ -425,10 +408,16 @@ cols['for']            # pl.col('for') — Python keyword
         a dpyr ``DataFrame`` so piping can continue, while grouped frames and
         non-frame results (such as a ``Series`` from ``pull``) are passed through
         unchanged.
+
+        After each step, any new or changed column names in the result are
+        silently injected into the caller&#39;s global namespace so derived columns
+        are available as bare names in subsequent statements.
         &#34;&#34;&#34;
         result = other(self)
         if isinstance(result, pl.DataFrame) and not isinstance(result, DataFrame):
-            return DataFrame(result)
+            result = DataFrame(result)
+        if isinstance(result, (DataFrame, GroupedDataFrame)):
+            _inject_into_frame(result, inspect.currentframe().f_back, warn_on_skip=False)
         return result
 
     @property
@@ -578,7 +567,9 @@ df | filter(df.cols['my column'] &gt; 0)  # special characters
         &#34;&#34;&#34;
         result = other(self)
         if isinstance(result, pl.DataFrame) and not isinstance(result, DataFrame):
-            return DataFrame(result)
+            result = DataFrame(result)
+        if isinstance(result, (DataFrame, GroupedDataFrame)):
+            _inject_into_frame(result, inspect.currentframe().f_back, warn_on_skip=False)
         return result
 
     def __getattr__(self, name):
