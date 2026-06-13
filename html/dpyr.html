@@ -169,26 +169,70 @@ el.replaceWith(d);
 </code></pre></div>
 </dd>
 <dt id="dpyr.read_csv"><code class="name flex">
-<span>def <span class="ident">read_csv</span></span>(<span>*args, **kwargs)</span>
+<span>def <span class="ident">read_csv</span></span>(<span>*args, inject: bool = True, **kwargs)</span>
 </code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def read_csv(*args, **kwargs):
+<pre><code class="python">def read_csv(*args, inject: bool = True, **kwargs):
     &#34;&#34;&#34;
-    Reads a csv file into a DataFrame. This is equivalent to, and wrapper of, polars&#39; read_csv method. Returns a dpyr DataFrame. For example:
+    Read a CSV file into a dpyr DataFrame.
+
+    When *inject* is ``True`` (the default), each column name is sanitized to a
+    valid Python identifier and injected into the **caller&#39;s global namespace**
+    as a ``pl.col(...)`` expression, enabling R-like bare-name column references:
+
     ```python
-    df = read_csv(&#34;test.csv&#34;)
+    df = read_csv(&#34;iris.csv&#34;)
+    df | filter(sepal_length &gt; 5.0) | select(species, sepal_length)
     ```
+
+    Sanitization rules applied to column names before injection:
+
+    - spaces and hyphens become underscores
+    - other non-identifier characters are stripped
+    - names starting with a digit are prefixed with ``_``
+
+    Columns whose sanitized name is a Python keyword, or that would overwrite
+    an existing **non-column** global variable, are skipped and a
+    ``UserWarning`` is issued.  Existing column-reference globals (``pl.Expr``
+    values) are silently updated so re-reading a file or reading a second file
+    with overlapping column names keeps globals in sync.
+    Use ``df.cols[&#39;original name&#39;]`` to access any skipped columns.
+
+    Pass ``inject=False`` to disable injection entirely and use ``df.cols`` or
+    the global ``c`` object for column references.
     &#34;&#34;&#34;
     pl_df = pl.read_csv(*args, **kwargs)
-    return DataFrame(pl_df)</code></pre>
+    df = DataFrame(pl_df)
+    if inject:
+        _inject_into_frame(df, inspect.currentframe().f_back, warn_on_skip=True)
+    return df</code></pre>
 </details>
-<div class="desc"><p>Reads a csv file into a DataFrame. This is equivalent to, and wrapper of, polars' read_csv method. Returns a dpyr DataFrame. For example:</p>
-<pre><code class="language-python">df = read_csv(&quot;test.csv&quot;)
-</code></pre></div>
+<div class="desc"><p>Read a CSV file into a dpyr DataFrame.</p>
+<p>When <em>inject</em> is <code>True</code> (the default), each column name is sanitized to a
+valid Python identifier and injected into the <strong>caller's global namespace</strong>
+as a <code>pl.col(&hellip;)</code> expression, enabling R-like bare-name column references:</p>
+<pre><code class="language-python">df = read_csv(&quot;iris.csv&quot;)
+df | filter(sepal_length &gt; 5.0) | select(species, sepal_length)
+</code></pre>
+<p>Sanitization rules applied to column names before injection:</p>
+<ul>
+<li>spaces and hyphens become underscores</li>
+<li>other non-identifier characters are stripped</li>
+<li>names starting with a digit are prefixed with <code>_</code></li>
+</ul>
+<p>Columns whose sanitized name is a Python keyword, or that would overwrite
+an existing <strong>non-column</strong> global variable, are skipped and a
+<code>UserWarning</code> is issued.
+Existing column-reference globals (<code>pl.Expr</code>
+values) are silently updated so re-reading a file or reading a second file
+with overlapping column names keeps globals in sync.
+Use <code>df.cols['original name']</code> to access any skipped columns.</p>
+<p>Pass <code>inject=False</code> to disable injection entirely and use <code>df.cols</code> or
+the global <code>c</code> object for column references.</p></div>
 </dd>
 <dt id="dpyr.row_number"><code class="name flex">
 <span>def <span class="ident">row_number</span></span>(<span>expr=None)</span>
@@ -226,6 +270,100 @@ df = df | mutate(rank = row_number(c.score))
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
+<dt id="dpyr.Columns"><code class="flex name class">
+<span>class <span class="ident">Columns</span></span>
+<span>(</span><span>df: <a title="dpyr.DataFrame" href="#dpyr.DataFrame">DataFrame</a>)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Columns:
+    &#34;&#34;&#34;Dataset-specific column namespace.
+
+    Returned by :attr:`DataFrame.cols` and injected into the caller&#39;s global
+    namespace by :func:`read_csv`. Validates that columns exist at access time
+    and supports tab-completion in Jupyter.
+
+    Attribute access uses sanitized names (spaces/hyphens → underscores);
+    bracket notation uses the original column name:
+
+    ```python
+    df, cols = ...
+    cols.sepal_length       # pl.col(&#39;sepal_length&#39;)
+    cols[&#39;my column&#39;]      # pl.col(&#39;my column&#39;)
+    cols[&#39;for&#39;]            # pl.col(&#39;for&#39;) — Python keyword
+    ```
+    &#34;&#34;&#34;
+
+    def __init__(self, df: &#39;DataFrame&#39;):
+        object.__setattr__(self, &#39;_df&#39;, df)
+        sanitized_map: dict[str, str] = {}
+        collisions: list[str] = []
+        for col in df.columns:
+            sanitized = _sanitize_col_name(col)
+            if sanitized in sanitized_map:
+                collisions.append(
+                    f&#34;  &#39;{col}&#39; → &#39;{sanitized}&#39; conflicts with &#34;
+                    f&#34;&#39;{sanitized_map[sanitized]}&#39;; use df.cols[&#39;{col}&#39;] instead&#34;
+                )
+            else:
+                sanitized_map[sanitized] = col
+        object.__setattr__(self, &#39;_sanitized_map&#39;, sanitized_map)
+        if collisions:
+            warnings.warn(
+                &#34;Column name collisions after sanitization:\n&#34; + &#34;\n&#34;.join(collisions),
+                UserWarning,
+                stacklevel=2,
+            )
+
+    def __getattr__(self, name: str):
+        sanitized_map = object.__getattribute__(self, &#39;_sanitized_map&#39;)
+        df = object.__getattribute__(self, &#39;_df&#39;)
+        if name in sanitized_map:
+            return pl.col(sanitized_map[name])
+        if name in df.columns:
+            return pl.col(name)
+        raise AttributeError(
+            f&#34;&#39;{name}&#39; is not a column. Available: {list(sanitized_map.keys())}&#34;
+        )
+
+    def __getitem__(self, name: str):
+        df = object.__getattribute__(self, &#39;_df&#39;)
+        if name not in df.columns:
+            raise KeyError(
+                f&#34;&#39;{name}&#39; is not a column. Available: {list(df.columns)}&#34;
+            )
+        return pl.col(name)
+
+    def __dir__(self):
+        sanitized_map = object.__getattribute__(self, &#39;_sanitized_map&#39;)
+        return list(sanitized_map.keys())
+
+    def __repr__(self):
+        df = object.__getattribute__(self, &#39;_df&#39;)
+        sanitized_map = object.__getattribute__(self, &#39;_sanitized_map&#39;)
+        lines = [f&#34;Columns({len(df.columns)}):&#34;]
+        for sanitized, original in sanitized_map.items():
+            if sanitized != original:
+                lines.append(f&#34;  .{sanitized}  ← &#39;{original}&#39;&#34;)
+            else:
+                lines.append(f&#34;  .{sanitized}&#34;)
+        return &#34;\n&#34;.join(lines)</code></pre>
+</details>
+<div class="desc"><p>Dataset-specific column namespace.</p>
+<p>Returned by :attr:<code><a title="dpyr.DataFrame.cols" href="#dpyr.DataFrame.cols">DataFrame.cols</a></code> and injected into the caller's global
+namespace by :func:<code><a title="dpyr.read_csv" href="#dpyr.read_csv">read_csv()</a></code>. Validates that columns exist at access time
+and supports tab-completion in Jupyter.</p>
+<p>Attribute access uses sanitized names (spaces/hyphens → underscores);
+bracket notation uses the original column name:</p>
+<pre><code class="language-python">df, cols = ...
+cols.sepal_length       # pl.col('sepal_length')
+cols['my column']      # pl.col('my column')
+cols['for']            # pl.col('for') — Python keyword
+</code></pre></div>
+</dd>
 <dt id="dpyr.DataFrame"><code class="flex name class">
 <span>class <span class="ident">DataFrame</span></span>
 <span>(</span><span>*args, **kwargs)</span>
@@ -270,11 +408,32 @@ df = df | mutate(rank = row_number(c.score))
         a dpyr ``DataFrame`` so piping can continue, while grouped frames and
         non-frame results (such as a ``Series`` from ``pull``) are passed through
         unchanged.
+
+        After each step, any new or changed column names in the result are
+        silently injected into the caller&#39;s global namespace so derived columns
+        are available as bare names in subsequent statements.
         &#34;&#34;&#34;
         result = other(self)
         if isinstance(result, pl.DataFrame) and not isinstance(result, DataFrame):
-            return DataFrame(result)
-        return result</code></pre>
+            result = DataFrame(result)
+        if isinstance(result, (DataFrame, GroupedDataFrame)):
+            _inject_into_frame(result, inspect.currentframe().f_back, warn_on_skip=False)
+        return result
+
+    @property
+    def cols(self) -&gt; &#39;Columns&#39;:
+        &#34;&#34;&#34;Dataset-specific column namespace for R-style bare-name access.
+
+        Returns a :class:`Columns` object whose attributes are ``pl.col(...)``
+        expressions for each column in this DataFrame:
+
+        ```python
+        df = read_csv(&#34;data.csv&#34;, inject=False)
+        df | filter(df.cols.sepal_length &gt; 5.0)
+        df | filter(df.cols[&#39;my column&#39;] &gt; 0)  # special characters
+        ```
+        &#34;&#34;&#34;
+        return Columns(self)</code></pre>
 </details>
 <div class="desc"><p>Wrapper class for the polars DataFrame. This class is used to add the magrittr style piping to the DataFrame. Use this class as a drop-in replacement for <code>polars.DataFrame</code>. For example:</p>
 <pre><code class="language-python">df = DataFrame({&quot;a&quot;: [1, 2, 3], &quot;b&quot;: [4, 5, 6]})
@@ -292,6 +451,38 @@ df = df | mutate(rank = row_number(c.score))
 <ul class="hlist">
 <li>polars.dataframe.frame.DataFrame</li>
 </ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="dpyr.DataFrame.cols"><code class="name">prop <span class="ident">cols</span> : <a title="dpyr.Columns" href="#dpyr.Columns">Columns</a></code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def cols(self) -&gt; &#39;Columns&#39;:
+    &#34;&#34;&#34;Dataset-specific column namespace for R-style bare-name access.
+
+    Returns a :class:`Columns` object whose attributes are ``pl.col(...)``
+    expressions for each column in this DataFrame:
+
+    ```python
+    df = read_csv(&#34;data.csv&#34;, inject=False)
+    df | filter(df.cols.sepal_length &gt; 5.0)
+    df | filter(df.cols[&#39;my column&#39;] &gt; 0)  # special characters
+    ```
+    &#34;&#34;&#34;
+    return Columns(self)</code></pre>
+</details>
+<div class="desc"><p>Dataset-specific column namespace for R-style bare-name access.</p>
+<p>Returns a :class:<code><a title="dpyr.Columns" href="#dpyr.Columns">Columns</a></code> object whose attributes are <code>pl.col(&hellip;)</code>
+expressions for each column in this DataFrame:</p>
+<pre><code class="language-python">df = read_csv(&quot;data.csv&quot;, inject=False)
+df | filter(df.cols.sepal_length &gt; 5.0)
+df | filter(df.cols['my column'] &gt; 0)  # special characters
+</code></pre></div>
+</dd>
+</dl>
 </dd>
 <dt id="dpyr.DataFrameOperation"><code class="flex name class">
 <span>class <span class="ident">DataFrameOperation</span></span>
@@ -376,7 +567,9 @@ df = df | mutate(rank = row_number(c.score))
         &#34;&#34;&#34;
         result = other(self)
         if isinstance(result, pl.DataFrame) and not isinstance(result, DataFrame):
-            return DataFrame(result)
+            result = DataFrame(result)
+        if isinstance(result, (DataFrame, GroupedDataFrame)):
+            _inject_into_frame(result, inspect.currentframe().f_back, warn_on_skip=False)
         return result
 
     def __getattr__(self, name):
@@ -1367,7 +1560,13 @@ polars' <code><a title="dpyr.tail" href="#dpyr.tail">tail</a></code> method. For
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
+<h4><code><a title="dpyr.Columns" href="#dpyr.Columns">Columns</a></code></h4>
+</li>
+<li>
 <h4><code><a title="dpyr.DataFrame" href="#dpyr.DataFrame">DataFrame</a></code></h4>
+<ul class="">
+<li><code><a title="dpyr.DataFrame.cols" href="#dpyr.DataFrame.cols">cols</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="dpyr.DataFrameOperation" href="#dpyr.DataFrameOperation">DataFrameOperation</a></code></h4>
