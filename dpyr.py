@@ -40,10 +40,16 @@ class DataFrame(pl.DataFrame):
         a dpyr ``DataFrame`` so piping can continue, while grouped frames and
         non-frame results (such as a ``Series`` from ``pull``) are passed through
         unchanged.
+
+        After each step, any new or changed column names in the result are
+        silently injected into the caller's global namespace so derived columns
+        are available as bare names in subsequent statements.
         """
         result = other(self)
         if isinstance(result, pl.DataFrame) and not isinstance(result, DataFrame):
-            return DataFrame(result)
+            result = DataFrame(result)
+        if isinstance(result, (DataFrame, GroupedDataFrame)):
+            _inject_into_frame(result, inspect.currentframe().f_back, warn_on_skip=False)
         return result
 
     @property
@@ -84,7 +90,9 @@ class GroupedDataFrame:
         """
         result = other(self)
         if isinstance(result, pl.DataFrame) and not isinstance(result, DataFrame):
-            return DataFrame(result)
+            result = DataFrame(result)
+        if isinstance(result, (DataFrame, GroupedDataFrame)):
+            _inject_into_frame(result, inspect.currentframe().f_back, warn_on_skip=False)
         return result
 
     def __getattr__(self, name):
@@ -134,6 +142,42 @@ def _sanitize_col_name(name: str) -> str:
     if result and result[0].isdigit():
         result = '_' + result
     return result or '_col'
+
+
+def _inject_into_frame(df_or_gdf, frame, warn_on_skip: bool = False) -> None:
+    """Inject column names from *df_or_gdf* into *frame*'s global namespace.
+
+    For each column in the DataFrame:
+
+    - Absent from globals → inject.
+    - Already a ``pl.Expr`` in globals → overwrite silently (it was a prior
+      column reference; updating keeps globals in sync with the current pipeline
+      state).
+    - Any other type in globals → skip (protects real user variables).
+      When *warn_on_skip* is ``True`` a ``UserWarning`` lists all skipped names.
+
+    Python keywords are always skipped (they cannot be identifiers).
+    Use ``df.cols['<name>']`` to access those columns explicitly.
+    """
+    df = df_or_gdf.df if isinstance(df_or_gdf, GroupedDataFrame) else df_or_gdf
+    g = frame.f_globals
+    skipped: list[tuple[str, str, str]] = []
+    for col in df.columns:
+        sanitized = _sanitize_col_name(col)
+        if keyword.iskeyword(sanitized):
+            if warn_on_skip:
+                skipped.append((col, sanitized, f"Python keyword — use df.cols['{col}']"))
+            continue
+        existing = g.get(sanitized)
+        if existing is None or isinstance(existing, pl.Expr):
+            g[sanitized] = pl.col(col)
+        elif warn_on_skip:
+            skipped.append((col, sanitized, "already exists in namespace"))
+    if skipped:
+        lines = ["The following columns were not injected into the global namespace:"]
+        for col, sanitized, reason in skipped:
+            lines.append(f"  '{col}' → '{sanitized}': {reason}")
+        warnings.warn("\n".join(lines), UserWarning, stacklevel=3)
 
 
 class Columns:
@@ -758,40 +802,19 @@ def read_csv(*args, inject: bool = True, **kwargs):
     - names starting with a digit are prefixed with ``_``
 
     Columns whose sanitized name is a Python keyword, or that would overwrite
-    an existing global variable, are skipped and a ``UserWarning`` is issued.
-    Use ``df.cols['original name']`` to access those columns.
+    an existing **non-column** global variable, are skipped and a
+    ``UserWarning`` is issued.  Existing column-reference globals (``pl.Expr``
+    values) are silently updated so re-reading a file or reading a second file
+    with overlapping column names keeps globals in sync.
+    Use ``df.cols['original name']`` to access any skipped columns.
 
     Pass ``inject=False`` to disable injection entirely and use ``df.cols`` or
     the global ``c`` object for column references.
     """
     pl_df = pl.read_csv(*args, **kwargs)
     df = DataFrame(pl_df)
-
     if inject:
-        frame = inspect.currentframe().f_back
-        caller_globals = frame.f_globals
-
-        skipped: list[tuple[str, str, str]] = []
-        for col in df.columns:
-            sanitized = _sanitize_col_name(col)
-            if keyword.iskeyword(sanitized):
-                skipped.append(
-                    (col, sanitized, f"Python keyword — use df.cols['{col}']")
-                )
-                continue
-            if sanitized in caller_globals:
-                skipped.append((col, sanitized, "already exists in namespace"))
-                continue
-            caller_globals[sanitized] = pl.col(col)
-
-        if skipped:
-            lines = [
-                "The following columns were not injected into the global namespace:"
-            ]
-            for col, sanitized, reason in skipped:
-                lines.append(f"  '{col}' → '{sanitized}': {reason}")
-            warnings.warn("\n".join(lines), UserWarning, stacklevel=2)
-
+        _inject_into_frame(df, inspect.currentframe().f_back, warn_on_skip=True)
     return df
 
 class preview(DataFrameOperation):

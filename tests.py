@@ -469,3 +469,64 @@ class TestReadCsvInject(unittest.TestCase):
     def test_inject_returns_dataframe(self):
         df = read_csv(self._TMP_CSV, inject=True)
         self.assertIsInstance(df, DataFrame)
+
+    def test_inject_overwrites_existing_expr_silently(self):
+        """A pre-existing pl.Expr global is silently updated — no warning."""
+        import warnings
+        # Pre-populate with a column expr (e.g. from a previous read)
+        globals()[self._COLLISION_COL] = pl.col("old_name")
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            read_csv(self._COLLISION_CSV, inject=True)
+        # No warning should have been emitted for this column
+        skip_warnings = [x for x in w if "already exists" in str(x.message)]
+        self.assertEqual(skip_warnings, [])
+        # Global updated to new expression
+        self.assertEqual(str(globals()[self._COLLISION_COL]), str(pl.col(self._COLLISION_COL)))
+
+
+class TestPipeInjection(unittest.TestCase):
+    """Derived columns produced by pipe operations are injected into globals."""
+
+    _NEW_COL = "_dpyr_pipe_derived_col"
+    _SUM_COL = "_dpyr_pipe_sum_col"
+
+    def setUp(self):
+        globals().pop(self._NEW_COL, None)
+        globals().pop(self._SUM_COL, None)
+        self.df = DataFrame({"a": [1, 2, 3], "b": [10, 20, 30]})
+
+    def tearDown(self):
+        globals().pop(self._NEW_COL, None)
+        globals().pop(self._SUM_COL, None)
+
+    def test_mutate_injects_new_column(self):
+        self.assertNotIn(self._NEW_COL, globals())
+        _ = self.df | mutate(**{self._NEW_COL: pl.col("a") + pl.col("b")})
+        self.assertIn(self._NEW_COL, globals())
+        self.assertEqual(str(globals()[self._NEW_COL]), str(pl.col(self._NEW_COL)))
+
+    def test_summarize_injects_aggregated_column(self):
+        from dpyr import group_by, summarize, n
+        self.assertNotIn(self._SUM_COL, globals())
+        _ = self.df | group_by(pl.col("a")) | summarize(**{self._SUM_COL: pl.col("b").sum()})
+        self.assertIn(self._SUM_COL, globals())
+
+    def test_derived_col_available_in_next_statement(self):
+        """Bare name works across separate statements (not within a single chain)."""
+        df = self.df | mutate(**{self._NEW_COL: pl.col("a") * 2})
+        # _NEW_COL is now in globals — can use as bare name in next statement
+        result = df | filter(globals()[self._NEW_COL] > 2)
+        self.assertEqual(result.height, 2)
+
+    def test_pipe_does_not_overwrite_user_variables(self):
+        """A user variable with same name as a new column is left untouched."""
+        globals()[self._NEW_COL] = "user_value"
+        _ = self.df | mutate(**{self._NEW_COL: pl.col("a") + pl.col("b")})
+        self.assertEqual(globals()[self._NEW_COL], "user_value")
+
+    def test_pipe_updates_existing_expr_global(self):
+        """An existing pl.Expr global is silently updated after a pipe step."""
+        globals()[self._NEW_COL] = pl.col("old_expr")
+        _ = self.df | mutate(**{self._NEW_COL: pl.col("a") + pl.col("b")})
+        self.assertEqual(str(globals()[self._NEW_COL]), str(pl.col(self._NEW_COL)))
