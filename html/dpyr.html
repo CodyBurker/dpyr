@@ -44,6 +44,24 @@ el.replaceWith(d);
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="dpyr.dense_rank"><code class="name flex">
+<span>def <span class="ident">dense_rank</span></span>(<span>expr)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def dense_rank(expr):
+    &#34;&#34;&#34;
+    Rank with ties sharing a rank and no gaps, mirroring dplyr&#39;s ``dense_rank()``
+    (``c(10, 20, 20, 30) -&gt; 1, 2, 2, 3``).
+    &#34;&#34;&#34;
+    return expr.rank(method=&#34;dense&#34;).cast(pl.Int64)</code></pre>
+</details>
+<div class="desc"><p>Rank with ties sharing a rank and no gaps, mirroring dplyr's <code><a title="dpyr.dense_rank" href="#dpyr.dense_rank">dense_rank()</a></code>
+(<code>c(10, 20, 20, 30) -&gt; 1, 2, 2, 3</code>).</p></div>
+</dd>
 <dt id="dpyr.desc"><code class="name flex">
 <span>def <span class="ident">desc</span></span>(<span>expr)</span>
 </code></dt>
@@ -109,6 +127,24 @@ el.replaceWith(d);
 <pre><code class="language-python">df = df | mutate(next = lead(c.value))
 </code></pre></div>
 </dd>
+<dt id="dpyr.min_rank"><code class="name flex">
+<span>def <span class="ident">min_rank</span></span>(<span>expr)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def min_rank(expr):
+    &#34;&#34;&#34;
+    Rank with ties sharing the smallest rank and leaving gaps, mirroring dplyr&#39;s
+    ``min_rank()`` (``c(10, 20, 20, 30) -&gt; 1, 2, 2, 4``).
+    &#34;&#34;&#34;
+    return expr.rank(method=&#34;min&#34;).cast(pl.Int64)</code></pre>
+</details>
+<div class="desc"><p>Rank with ties sharing the smallest rank and leaving gaps, mirroring dplyr's
+<code><a title="dpyr.min_rank" href="#dpyr.min_rank">min_rank()</a></code> (<code>c(10, 20, 20, 30) -&gt; 1, 2, 2, 4</code>).</p></div>
+</dd>
 <dt id="dpyr.n"><code class="name flex">
 <span>def <span class="ident">n</span></span>(<span>)</span>
 </code></dt>
@@ -152,6 +188,37 @@ el.replaceWith(d);
 </details>
 <div class="desc"><p>Reads a csv file into a DataFrame. This is equivalent to, and wrapper of, polars' read_csv method. Returns a dpyr DataFrame. For example:</p>
 <pre><code class="language-python">df = read_csv(&quot;test.csv&quot;)
+</code></pre></div>
+</dd>
+<dt id="dpyr.row_number"><code class="name flex">
+<span>def <span class="ident">row_number</span></span>(<span>expr=None)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def row_number(expr=None):
+    &#34;&#34;&#34;
+    1-based row index, mirroring dplyr&#39;s ``row_number()``. With no argument it
+    numbers rows in their current order; given a column it returns the ordinal
+    rank of that column (unique ranks, ties broken by appearance). Inside a
+    grouped :class:`mutate` the numbering restarts per group.
+    ```python
+    df = df | mutate(rn = row_number())
+    df = df | mutate(rank = row_number(c.score))
+    ```
+    &#34;&#34;&#34;
+    if expr is None:
+        return pl.int_range(1, pl.len() + 1, dtype=pl.Int64)
+    return expr.rank(method=&#34;ordinal&#34;).cast(pl.Int64)</code></pre>
+</details>
+<div class="desc"><p>1-based row index, mirroring dplyr's <code><a title="dpyr.row_number" href="#dpyr.row_number">row_number()</a></code>. With no argument it
+numbers rows in their current order; given a column it returns the ordinal
+rank of that column (unique ranks, ties broken by appearance). Inside a
+grouped :class:<code><a title="dpyr.mutate" href="#dpyr.mutate">mutate</a></code> the numbering restarts per group.</p>
+<pre><code class="language-python">df = df | mutate(rn = row_number())
+df = df | mutate(rank = row_number(c.score))
 </code></pre></div>
 </dd>
 </dl>
@@ -299,8 +366,9 @@ el.replaceWith(d);
     &#34;&#34;&#34;
 
     def __init__(self, df, keys):
-        self.df = df
-        self.keys = list(keys)
+        # Use object.__setattr__ so these don&#39;t get routed through __getattr__.
+        object.__setattr__(self, &#34;df&#34;, df)
+        object.__setattr__(self, &#34;keys&#34;, list(keys))
 
     def __or__(self, other):
         &#34;&#34;&#34;
@@ -309,7 +377,22 @@ el.replaceWith(d);
         result = other(self)
         if isinstance(result, pl.DataFrame) and not isinstance(result, DataFrame):
             return DataFrame(result)
-        return result</code></pre>
+        return result
+
+    def __getattr__(self, name):
+        &#34;&#34;&#34;
+        Delegate attribute access (``to_pandas``, ``height``, ``columns`` …) to
+        the underlying frame so a grouped frame can still be inspected and
+        displayed like a regular DataFrame.
+        &#34;&#34;&#34;
+        return getattr(self.df, name)
+
+    def __repr__(self):
+        return &#34;GroupedDataFrame (groups: {}):\n{}&#34;.format(self.keys, repr(self.df))
+
+    def _repr_html_(self):
+        # Render nicely in notebooks.
+        return self.df._repr_html_()</code></pre>
 </details>
 <div class="desc"><p>Represents a DataFrame that has been grouped with :class:<code><a title="dpyr.group_by" href="#dpyr.group_by">group_by</a></code>.</p>
 <p>A <code><a title="dpyr.GroupedDataFrame" href="#dpyr.GroupedDataFrame">GroupedDataFrame</a></code> holds the underlying dpyr <code><a title="dpyr.DataFrame" href="#dpyr.DataFrame">DataFrame</a></code> together with
@@ -386,7 +469,8 @@ dplyr's <code><a title="dpyr.anti_join" href="#dpyr.anti_join">anti_join</a></co
             else:
                 exprs.append(arg)
                 descending.append(False)
-        return df.sort(exprs, descending=descending)</code></pre>
+        # dplyr always sorts missing values to the end, even for desc().
+        return df.sort(exprs, descending=descending, nulls_last=True)</code></pre>
 </details>
 <div class="desc"><p>Arrange the rows in a DataFrame. This is equivalent to, and wrapper of, polars' sort method, but expects a dataframe to be piped to it. Wrap a column in :func:<code><a title="dpyr.desc" href="#dpyr.desc">desc()</a></code> to sort it in descending order. For example:</p>
 <pre><code class="language-python">df = df | arrange(c.column_1, desc(c.column_2))
@@ -438,14 +522,21 @@ dplyr's <code><a title="dpyr.anti_join" href="#dpyr.anti_join">anti_join</a></co
     ```python
     df = df | count(c.column_1)
     ```
+
+    On a grouped frame the supplied columns are added to the existing grouping
+    for the tally and the input&#39;s original grouping is restored on the result,
+    mirroring dplyr&#39;s transient ``.add = TRUE``.
     &#34;&#34;&#34;
 
     def __call__(self, df):
         if isinstance(df, GroupedDataFrame):
+            original = df.keys
             keys = df.keys + [_column_name(arg) for arg in self.args]
-            df = df.df
-        else:
-            keys = [_column_name(arg) for arg in self.args]
+            counted = df.df.group_by(keys, maintain_order=True).agg(
+                pl.len().alias(&#34;n&#34;)
+            )
+            return GroupedDataFrame(DataFrame(counted), original)
+        keys = [_column_name(arg) for arg in self.args]
         if not keys:
             return df.select(pl.len().alias(&#34;n&#34;))
         return df.group_by(keys, maintain_order=True).agg(pl.len().alias(&#34;n&#34;))</code></pre>
@@ -454,7 +545,10 @@ dplyr's <code><a title="dpyr.anti_join" href="#dpyr.anti_join">anti_join</a></co
 mirroring dplyr's <code><a title="dpyr.count" href="#dpyr.count">count</a></code>. The count is returned in a column named <code><a title="dpyr.n" href="#dpyr.n">n()</a></code>.
 With no columns the total number of rows is returned. For example:</p>
 <pre><code class="language-python">df = df | count(c.column_1)
-</code></pre></div>
+</code></pre>
+<p>On a grouped frame the supplied columns are added to the existing grouping
+for the tally and the input's original grouping is restored on the result,
+mirroring dplyr's transient <code>.add = TRUE</code>.</p></div>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="dpyr.DataFrameOperation" href="#dpyr.DataFrameOperation">DataFrameOperation</a></li>
@@ -521,8 +615,8 @@ df = df | distinct(c.column_1, keep_all=True)
     df = df | filter(c.column_1 &gt; 1)
     ```
 
-    When applied to a grouped frame the predicate is evaluated within each group,
-    mirroring dplyr&#39;s grouped ``filter``.
+    When applied to a grouped frame the predicate is evaluated within each group
+    and the grouping is preserved, mirroring dplyr&#39;s grouped ``filter``.
     &#34;&#34;&#34;
 
     def __call__(self, df):
@@ -531,14 +625,14 @@ df = df | distinct(c.column_1, keep_all=True)
         &#34;&#34;&#34;
         if isinstance(df, GroupedDataFrame):
             predicates = [p.over(df.keys) for p in self.args]
-            return df.df.filter(*predicates)
+            return GroupedDataFrame(df.df.filter(*predicates), df.keys)
         return df.filter(*self.args)</code></pre>
 </details>
 <div class="desc"><p>Filter rows from a DataFrame. This is equivalent to, and wrapper of, polars' filter method, but expects a dataframe to be piped to it. For example:</p>
 <pre><code class="language-python">df = df | filter(c.column_1 &gt; 1)
 </code></pre>
-<p>When applied to a grouped frame the predicate is evaluated within each group,
-mirroring dplyr's grouped <code><a title="dpyr.filter" href="#dpyr.filter">filter</a></code>.</p></div>
+<p>When applied to a grouped frame the predicate is evaluated within each group
+and the grouping is preserved, mirroring dplyr's grouped <code><a title="dpyr.filter" href="#dpyr.filter">filter</a></code>.</p></div>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="dpyr.DataFrameOperation" href="#dpyr.DataFrameOperation">DataFrameOperation</a></li>
@@ -596,12 +690,19 @@ mirroring dplyr's grouped <code><a title="dpyr.filter" href="#dpyr.filter">filte
     ```python
     df = df | group_by(c.column_1) | summarize(total = c.column_2.sum())
     ```
+
+    By default this replaces any existing grouping (dplyr&#39;s ``.add = FALSE``).
+    Pass ``add=True`` to append to the current grouping instead.
     &#34;&#34;&#34;
 
     def __call__(self, df):
+        new_keys = [_column_name(arg) for arg in self.args]
+        add = self.kwargs.get(&#34;add&#34;, False)
         if isinstance(df, GroupedDataFrame):
+            keys = df.keys + new_keys if add else new_keys
             df = df.df
-        keys = [_column_name(arg) for arg in self.args]
+        else:
+            keys = new_keys
         return GroupedDataFrame(df, keys)</code></pre>
 </details>
 <div class="desc"><p>Group a DataFrame by one or more columns, mirroring dplyr's <code><a title="dpyr.group_by" href="#dpyr.group_by">group_by</a></code>.
@@ -609,7 +710,9 @@ The result is a :class:<code><a title="dpyr.GroupedDataFrame" href="#dpyr.Groupe
 :class:<code><a title="dpyr.summarize" href="#dpyr.summarize">summarize</a></code>, :class:<code><a title="dpyr.mutate" href="#dpyr.mutate">mutate</a></code> and :class:<code><a title="dpyr.count" href="#dpyr.count">count</a></code> operate on per group.
 For example:</p>
 <pre><code class="language-python">df = df | group_by(c.column_1) | summarize(total = c.column_2.sum())
-</code></pre></div>
+</code></pre>
+<p>By default this replaces any existing grouping (dplyr's <code>.add = FALSE</code>).
+Pass <code>add=True</code> to append to the current grouping instead.</p></div>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="dpyr.DataFrameOperation" href="#dpyr.DataFrameOperation">DataFrameOperation</a></li>
@@ -733,7 +836,14 @@ For example:</p>
     ```
 
     When applied to a grouped frame each expression is computed within its group
-    (using a window function), mirroring dplyr&#39;s grouped ``mutate``.
+    (using a window function) and the grouping is preserved, mirroring dplyr&#39;s
+    grouped ``mutate``.
+
+    Like dplyr, expressions are evaluated sequentially, so a later expression can
+    refer to a column created earlier in the same ``mutate`` call:
+    ```python
+    df = df | mutate(b = c.a + 1, d = c.b * 2)
+    ```
     &#34;&#34;&#34;
 
     def __call__(self, df):
@@ -741,15 +851,26 @@ For example:</p>
         Apply the mutate operation on the DataFrame
         &#34;&#34;&#34;
         if isinstance(df, GroupedDataFrame):
-            exprs = {name: expr.over(df.keys) for name, expr in self.kwargs.items()}
-            return df.df.with_columns(**exprs)
-        return df.with_columns(**self.kwargs)</code></pre>
+            out = df.df
+            for name, expr in self.kwargs.items():
+                value = expr.over(df.keys) if hasattr(expr, &#34;over&#34;) else expr
+                out = out.with_columns(**{name: value})
+            return GroupedDataFrame(out, df.keys)
+        out = df
+        for name, expr in self.kwargs.items():
+            out = out.with_columns(**{name: expr})
+        return out</code></pre>
 </details>
 <div class="desc"><p>Add or change a column in a DataFrame. This is equivalent to, and wrapper of, polars' with_columns method, but expects a dataframe to be piped to it. For example:</p>
 <pre><code class="language-python">df = df | mutate(new_column = c.column_1 + c.column_2)
 </code></pre>
 <p>When applied to a grouped frame each expression is computed within its group
-(using a window function), mirroring dplyr's grouped <code><a title="dpyr.mutate" href="#dpyr.mutate">mutate</a></code>.</p></div>
+(using a window function) and the grouping is preserved, mirroring dplyr's
+grouped <code><a title="dpyr.mutate" href="#dpyr.mutate">mutate</a></code>.</p>
+<p>Like dplyr, expressions are evaluated sequentially, so a later expression can
+refer to a column created earlier in the same <code><a title="dpyr.mutate" href="#dpyr.mutate">mutate</a></code> call:</p>
+<pre><code class="language-python">df = df | mutate(b = c.a + 1, d = c.b * 2)
+</code></pre></div>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="dpyr.DataFrameOperation" href="#dpyr.DataFrameOperation">DataFrameOperation</a></li>
@@ -1081,11 +1202,19 @@ df = df | slice_sample(prop=0.1)
     ```python
     df = df | group_by(c.g) | summarize(total = c.value.sum(), count = n())
     ```
+
+    Mirroring dplyr&#39;s default ``.groups = &#34;drop_last&#34;``, summarising a frame
+    grouped by several columns peels off the last grouping level and returns a
+    frame still grouped by the remaining columns; summarising a frame grouped by
+    a single column returns an ungrouped frame.
     &#34;&#34;&#34;
 
     def __call__(self, df):
         if isinstance(df, GroupedDataFrame):
-            return df.df.group_by(df.keys, maintain_order=True).agg(**self.kwargs)
+            result = df.df.group_by(df.keys, maintain_order=True).agg(**self.kwargs)
+            if len(df.keys) &gt; 1:
+                return GroupedDataFrame(DataFrame(result), df.keys[:-1])
+            return result
         return df.select(**self.kwargs)</code></pre>
 </details>
 <div class="desc"><p>Summarise a DataFrame, equivalent to dplyr's <code><a title="dpyr.summarize" href="#dpyr.summarize">summarize</a></code>/<code><a title="dpyr.summarize" href="#dpyr.summarize">summarize</a></code> and
@@ -1093,7 +1222,11 @@ polars' <code>agg</code>. When applied to a :class:<code><a title="dpyr.GroupedD
 within each group; applied to an ungrouped frame it collapses to a single
 row. For example:</p>
 <pre><code class="language-python">df = df | group_by(c.g) | summarize(total = c.value.sum(), count = n())
-</code></pre></div>
+</code></pre>
+<p>Mirroring dplyr's default <code>.groups = "drop_last"</code>, summarising a frame
+grouped by several columns peels off the last grouping level and returns a
+frame still grouped by the remaining columns; summarising a frame grouped by
+a single column returns an ungrouped frame.</p></div>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="dpyr.DataFrameOperation" href="#dpyr.DataFrameOperation">DataFrameOperation</a></li>
@@ -1117,11 +1250,19 @@ row. For example:</p>
     ```python
     df = df | group_by(c.g) | summarize(total = c.value.sum(), count = n())
     ```
+
+    Mirroring dplyr&#39;s default ``.groups = &#34;drop_last&#34;``, summarising a frame
+    grouped by several columns peels off the last grouping level and returns a
+    frame still grouped by the remaining columns; summarising a frame grouped by
+    a single column returns an ungrouped frame.
     &#34;&#34;&#34;
 
     def __call__(self, df):
         if isinstance(df, GroupedDataFrame):
-            return df.df.group_by(df.keys, maintain_order=True).agg(**self.kwargs)
+            result = df.df.group_by(df.keys, maintain_order=True).agg(**self.kwargs)
+            if len(df.keys) &gt; 1:
+                return GroupedDataFrame(DataFrame(result), df.keys[:-1])
+            return result
         return df.select(**self.kwargs)</code></pre>
 </details>
 <div class="desc"><p>Summarise a DataFrame, equivalent to dplyr's <code><a title="dpyr.summarize" href="#dpyr.summarize">summarize</a></code>/<code><a title="dpyr.summarize" href="#dpyr.summarize">summarize</a></code> and
@@ -1129,7 +1270,11 @@ polars' <code>agg</code>. When applied to a :class:<code><a title="dpyr.GroupedD
 within each group; applied to an ungrouped frame it collapses to a single
 row. For example:</p>
 <pre><code class="language-python">df = df | group_by(c.g) | summarize(total = c.value.sum(), count = n())
-</code></pre></div>
+</code></pre>
+<p>Mirroring dplyr's default <code>.groups = "drop_last"</code>, summarising a frame
+grouped by several columns peels off the last grouping level and returns a
+frame still grouped by the remaining columns; summarising a frame grouped by
+a single column returns an ungrouped frame.</p></div>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="dpyr.DataFrameOperation" href="#dpyr.DataFrameOperation">DataFrameOperation</a></li>
@@ -1208,12 +1353,15 @@ polars' <code><a title="dpyr.tail" href="#dpyr.tail">tail</a></code> method. For
 </div>
 <ul id="index">
 <li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="">
+<ul class="two-column">
+<li><code><a title="dpyr.dense_rank" href="#dpyr.dense_rank">dense_rank</a></code></li>
 <li><code><a title="dpyr.desc" href="#dpyr.desc">desc</a></code></li>
 <li><code><a title="dpyr.lag" href="#dpyr.lag">lag</a></code></li>
 <li><code><a title="dpyr.lead" href="#dpyr.lead">lead</a></code></li>
+<li><code><a title="dpyr.min_rank" href="#dpyr.min_rank">min_rank</a></code></li>
 <li><code><a title="dpyr.n" href="#dpyr.n">n</a></code></li>
 <li><code><a title="dpyr.read_csv" href="#dpyr.read_csv">read_csv</a></code></li>
+<li><code><a title="dpyr.row_number" href="#dpyr.row_number">row_number</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>

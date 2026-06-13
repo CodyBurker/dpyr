@@ -3,7 +3,7 @@ A wrapper to introduce dplyr like syntax for data manipulation to pandas and pol
 
 Documentation [here](https://html-preview.github.io/?url=https://github.com/CodyBurker/dpyr/blob/main/html/dpyr.html)
 
-Example notebook [here](https://github.com/CodyBurker/dpyr/blob/main/demo.ipynb)
+Example notebooks: [demo.ipynb](https://github.com/CodyBurker/dpyr/blob/main/demo.ipynb) (pandas/polars/dpyr comparison) and [examples.ipynb](https://github.com/CodyBurker/dpyr/blob/main/examples.ipynb) (a full tour of every verb)
 
 Goals: 
 * Symbolic names for columns
@@ -43,7 +43,27 @@ Goals:
 - [x] Add tests
 - [ ] Add CI/CD
 
+## dplyr compatibility
+
+dpyr aims to faithfully reproduce dplyr's semantics, not just polars'. In
+particular:
+
+* **`mutate` evaluates sequentially** — a later expression can reference a
+  column created earlier in the same call.
+* **`arrange` always sorts missing values last**, even under `desc()`.
+* **Grouped `mutate`/`filter` preserve grouping**; `summarize` peels off the
+  last grouping level (dplyr's `.groups = "drop_last"`).
+* **`distinct(col)` keeps only the named columns** by default (`keep_all=True`
+  keeps all), preserving row order.
+* **`full_join` coalesces the join key** into a single column, like dplyr.
+* **`count` on a grouped frame** adds to the existing grouping for the tally and
+  restores the original grouping on the result.
+* Window helpers `lag`, `lead`, `row_number`, `min_rank`, `dense_rank` and `n()`
+  operate per group inside a grouped `mutate`.
+
 Generate docs:
 ```python pdoc --html dpyr --force```
-Unit test:
-```python -m unittest```
+Unit and integration tests:
+```python -m unittest tests test_integration```
+Regenerate the example notebook:
+```python build_notebook.py && jupyter nbconvert --to notebook --execute --inplace examples.ipynb```

@@ -32,6 +32,9 @@ from dpyr import (
     n,
     lag,
     lead,
+    row_number,
+    min_rank,
+    dense_rank,
 )
 import polars as pl
 
@@ -233,7 +236,7 @@ class TestDpyrJoins(unittest.TestCase):
 
     def test_full_join(self):
         dpyr_result = self.dpyr_left | full_join(self.dpyr_right, by="id")
-        polars_result = self.pl_left.join(self.pl_right, on="id", how="full")
+        polars_result = self.pl_left.join(self.pl_right, on="id", how="full", coalesce=True)
         compare_dpyr_polars(dpyr_result, polars_result)
 
     def test_semi_join(self):
@@ -245,3 +248,90 @@ class TestDpyrJoins(unittest.TestCase):
         dpyr_result = self.dpyr_left | anti_join(self.dpyr_right, by=c.id)
         polars_result = self.pl_left.join(self.pl_right, on="id", how="anti")
         compare_dpyr_polars(dpyr_result, polars_result)
+
+
+class TestDplyrFidelity(unittest.TestCase):
+    """Behaviours where a naive polars port would diverge from dplyr."""
+
+    def setUp(self):
+        base_df = {
+            "g": ["x", "x", "y", "y", "x"],
+            "a": [3, 1, 2, 5, 1],
+        }
+        self.dpyr = DataFrame(base_df)
+        self.polars = pl.DataFrame(base_df)
+
+    def test_mutate_is_sequential(self):
+        # dplyr evaluates mutate expressions in order; b is visible to d.
+        result = self.dpyr | mutate(b=c.a + 1, d=c.b * 2)
+        self.assertEqual(result.get_column("d").to_list(), [8, 4, 6, 12, 4])
+
+    def test_arrange_desc_puts_nulls_last(self):
+        df = DataFrame({"a": [3, None, 1]})
+        result = df | arrange(desc(c.a))
+        self.assertEqual(result.get_column("a").to_list(), [3, 1, None])
+
+    def test_grouped_mutate_keeps_grouping(self):
+        result = self.dpyr | group_by(c.g) | mutate(b=c.a + 1)
+        self.assertIsInstance(result, GroupedDataFrame)
+        self.assertEqual(result.keys, ["g"])
+
+    def test_grouped_filter_keeps_grouping(self):
+        result = self.dpyr | group_by(c.g) | filter(c.a > 1)
+        self.assertIsInstance(result, GroupedDataFrame)
+
+    def test_summarize_single_group_is_ungrouped(self):
+        result = self.dpyr | group_by(c.g) | summarize(total=c.a.sum())
+        self.assertIsInstance(result, DataFrame)
+        self.assertNotIsInstance(result, GroupedDataFrame)
+
+    def test_summarize_peels_last_group_level(self):
+        df = DataFrame(
+            {
+                "g1": ["a", "a", "b", "b"],
+                "g2": ["x", "y", "x", "y"],
+                "v": [1, 2, 3, 4],
+            }
+        )
+        result = df | group_by(c.g1, c.g2) | summarize(total=c.v.sum())
+        self.assertIsInstance(result, GroupedDataFrame)
+        self.assertEqual(result.keys, ["g1"])
+
+    def test_group_by_replaces_by_default(self):
+        grouped = self.dpyr | group_by(c.g) | group_by(c.a)
+        self.assertEqual(grouped.keys, ["a"])
+
+    def test_group_by_add_appends(self):
+        grouped = self.dpyr | group_by(c.g) | group_by(c.a, add=True)
+        self.assertEqual(grouped.keys, ["g", "a"])
+
+    def test_count_on_grouped_keeps_original_grouping(self):
+        result = self.dpyr | group_by(c.g) | count(c.a)
+        self.assertIsInstance(result, GroupedDataFrame)
+        self.assertEqual(result.keys, ["g"])
+
+    def test_grouped_row_number_restarts_per_group(self):
+        result = self.dpyr | group_by(c.g) | mutate(rn=row_number()) | arrange(c.g)
+        # group x has 3 rows (1,2,3), group y has 2 rows (1,2)
+        self.assertEqual(sorted(result.get_column("rn").to_list()), [1, 1, 2, 2, 3])
+
+    def test_min_rank(self):
+        result = self.dpyr | mutate(r=min_rank(c.a))
+        polars_result = self.polars.with_columns(
+            r=pl.col("a").rank(method="min").cast(pl.Int64)
+        )
+        compare_dpyr_polars(result, polars_result)
+
+    def test_dense_rank(self):
+        result = self.dpyr | mutate(r=dense_rank(c.a))
+        polars_result = self.polars.with_columns(
+            r=pl.col("a").rank(method="dense").cast(pl.Int64)
+        )
+        compare_dpyr_polars(result, polars_result)
+
+    def test_row_number_of_column(self):
+        result = self.dpyr | mutate(r=row_number(c.a))
+        polars_result = self.polars.with_columns(
+            r=pl.col("a").rank(method="ordinal").cast(pl.Int64)
+        )
+        compare_dpyr_polars(result, polars_result)

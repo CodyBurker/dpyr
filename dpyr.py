@@ -54,8 +54,9 @@ class GroupedDataFrame:
     """
 
     def __init__(self, df, keys):
-        self.df = df
-        self.keys = list(keys)
+        # Use object.__setattr__ so these don't get routed through __getattr__.
+        object.__setattr__(self, "df", df)
+        object.__setattr__(self, "keys", list(keys))
 
     def __or__(self, other):
         """
@@ -65,6 +66,21 @@ class GroupedDataFrame:
         if isinstance(result, pl.DataFrame) and not isinstance(result, DataFrame):
             return DataFrame(result)
         return result
+
+    def __getattr__(self, name):
+        """
+        Delegate attribute access (``to_pandas``, ``height``, ``columns`` …) to
+        the underlying frame so a grouped frame can still be inspected and
+        displayed like a regular DataFrame.
+        """
+        return getattr(self.df, name)
+
+    def __repr__(self):
+        return "GroupedDataFrame (groups: {}):\n{}".format(self.keys, repr(self.df))
+
+    def _repr_html_(self):
+        # Render nicely in notebooks.
+        return self.df._repr_html_()
 
 
 class column:
@@ -146,6 +162,38 @@ def lead(expr, k=1, default=None):
     return expr.shift(-k, fill_value=default)
 
 
+def row_number(expr=None):
+    """
+    1-based row index, mirroring dplyr's ``row_number()``. With no argument it
+    numbers rows in their current order; given a column it returns the ordinal
+    rank of that column (unique ranks, ties broken by appearance). Inside a
+    grouped :class:`mutate` the numbering restarts per group.
+    ```python
+    df = df | mutate(rn = row_number())
+    df = df | mutate(rank = row_number(c.score))
+    ```
+    """
+    if expr is None:
+        return pl.int_range(1, pl.len() + 1, dtype=pl.Int64)
+    return expr.rank(method="ordinal").cast(pl.Int64)
+
+
+def min_rank(expr):
+    """
+    Rank with ties sharing the smallest rank and leaving gaps, mirroring dplyr's
+    ``min_rank()`` (``c(10, 20, 20, 30) -> 1, 2, 2, 4``).
+    """
+    return expr.rank(method="min").cast(pl.Int64)
+
+
+def dense_rank(expr):
+    """
+    Rank with ties sharing a rank and no gaps, mirroring dplyr's ``dense_rank()``
+    (``c(10, 20, 20, 30) -> 1, 2, 2, 3``).
+    """
+    return expr.rank(method="dense").cast(pl.Int64)
+
+
 class DataFrameOperation:
     """
     Base class for DataFrame operations. Used internally to allow for the magrittr style piping. Subclasses should implement the __call__ method to apply the operation to the DataFrame.
@@ -193,8 +241,8 @@ class filter(DataFrameOperation):
     df = df | filter(c.column_1 > 1)
     ```
 
-    When applied to a grouped frame the predicate is evaluated within each group,
-    mirroring dplyr's grouped ``filter``.
+    When applied to a grouped frame the predicate is evaluated within each group
+    and the grouping is preserved, mirroring dplyr's grouped ``filter``.
     """
 
     def __call__(self, df):
@@ -203,7 +251,7 @@ class filter(DataFrameOperation):
         """
         if isinstance(df, GroupedDataFrame):
             predicates = [p.over(df.keys) for p in self.args]
-            return df.df.filter(*predicates)
+            return GroupedDataFrame(df.df.filter(*predicates), df.keys)
         return df.filter(*self.args)
 
 class mutate(DataFrameOperation):
@@ -214,7 +262,14 @@ class mutate(DataFrameOperation):
     ```
 
     When applied to a grouped frame each expression is computed within its group
-    (using a window function), mirroring dplyr's grouped ``mutate``.
+    (using a window function) and the grouping is preserved, mirroring dplyr's
+    grouped ``mutate``.
+
+    Like dplyr, expressions are evaluated sequentially, so a later expression can
+    refer to a column created earlier in the same ``mutate`` call:
+    ```python
+    df = df | mutate(b = c.a + 1, d = c.b * 2)
+    ```
     """
 
     def __call__(self, df):
@@ -222,9 +277,15 @@ class mutate(DataFrameOperation):
         Apply the mutate operation on the DataFrame
         """
         if isinstance(df, GroupedDataFrame):
-            exprs = {name: expr.over(df.keys) for name, expr in self.kwargs.items()}
-            return df.df.with_columns(**exprs)
-        return df.with_columns(**self.kwargs)
+            out = df.df
+            for name, expr in self.kwargs.items():
+                value = expr.over(df.keys) if hasattr(expr, "over") else expr
+                out = out.with_columns(**{name: value})
+            return GroupedDataFrame(out, df.keys)
+        out = df
+        for name, expr in self.kwargs.items():
+            out = out.with_columns(**{name: expr})
+        return out
 
 class arrange(DataFrameOperation):
     """
@@ -249,7 +310,8 @@ class arrange(DataFrameOperation):
             else:
                 exprs.append(arg)
                 descending.append(False)
-        return df.sort(exprs, descending=descending)
+        # dplyr always sorts missing values to the end, even for desc().
+        return df.sort(exprs, descending=descending, nulls_last=True)
 
 class head(DataFrameOperation):
     """
@@ -292,12 +354,19 @@ class group_by(DataFrameOperation):
     ```python
     df = df | group_by(c.column_1) | summarize(total = c.column_2.sum())
     ```
+
+    By default this replaces any existing grouping (dplyr's ``.add = FALSE``).
+    Pass ``add=True`` to append to the current grouping instead.
     """
 
     def __call__(self, df):
+        new_keys = [_column_name(arg) for arg in self.args]
+        add = self.kwargs.get("add", False)
         if isinstance(df, GroupedDataFrame):
+            keys = df.keys + new_keys if add else new_keys
             df = df.df
-        keys = [_column_name(arg) for arg in self.args]
+        else:
+            keys = new_keys
         return GroupedDataFrame(df, keys)
 
 
@@ -325,11 +394,19 @@ class summarize(DataFrameOperation):
     ```python
     df = df | group_by(c.g) | summarize(total = c.value.sum(), count = n())
     ```
+
+    Mirroring dplyr's default ``.groups = "drop_last"``, summarising a frame
+    grouped by several columns peels off the last grouping level and returns a
+    frame still grouped by the remaining columns; summarising a frame grouped by
+    a single column returns an ungrouped frame.
     """
 
     def __call__(self, df):
         if isinstance(df, GroupedDataFrame):
-            return df.df.group_by(df.keys, maintain_order=True).agg(**self.kwargs)
+            result = df.df.group_by(df.keys, maintain_order=True).agg(**self.kwargs)
+            if len(df.keys) > 1:
+                return GroupedDataFrame(DataFrame(result), df.keys[:-1])
+            return result
         return df.select(**self.kwargs)
 
 
@@ -385,14 +462,21 @@ class count(DataFrameOperation):
     ```python
     df = df | count(c.column_1)
     ```
+
+    On a grouped frame the supplied columns are added to the existing grouping
+    for the tally and the input's original grouping is restored on the result,
+    mirroring dplyr's transient ``.add = TRUE``.
     """
 
     def __call__(self, df):
         if isinstance(df, GroupedDataFrame):
+            original = df.keys
             keys = df.keys + [_column_name(arg) for arg in self.args]
-            df = df.df
-        else:
-            keys = [_column_name(arg) for arg in self.args]
+            counted = df.df.group_by(keys, maintain_order=True).agg(
+                pl.len().alias("n")
+            )
+            return GroupedDataFrame(DataFrame(counted), original)
+        keys = [_column_name(arg) for arg in self.args]
         if not keys:
             return df.select(pl.len().alias("n"))
         return df.group_by(keys, maintain_order=True).agg(pl.len().alias("n"))
@@ -474,9 +558,14 @@ class _Join(DataFrameOperation):
         if isinstance(df, GroupedDataFrame):
             df = df.df
         on = _normalize_by(self.by)
+        # dplyr coalesces the join keys into a single column for every join,
+        # including full joins. Polars only coalesces full joins when asked.
+        kwargs = {"how": self.how, "suffix": self.suffix}
+        if self.how == "full":
+            kwargs["coalesce"] = True
         if on is None:
-            return df.join(self.right, how=self.how, suffix=self.suffix)
-        return df.join(self.right, on=on, how=self.how, suffix=self.suffix)
+            return df.join(self.right, **kwargs)
+        return df.join(self.right, on=on, **kwargs)
 
 
 class inner_join(_Join):
