@@ -1,3 +1,8 @@
+import inspect
+import keyword
+import re
+import warnings
+
 import polars as pl
 
 class DataFrame(pl.DataFrame):
@@ -40,6 +45,21 @@ class DataFrame(pl.DataFrame):
         if isinstance(result, pl.DataFrame) and not isinstance(result, DataFrame):
             return DataFrame(result)
         return result
+
+    @property
+    def cols(self) -> 'Columns':
+        """Dataset-specific column namespace for R-style bare-name access.
+
+        Returns a :class:`Columns` object whose attributes are ``pl.col(...)``
+        expressions for each column in this DataFrame:
+
+        ```python
+        df = read_csv("data.csv", inject=False)
+        df | filter(df.cols.sepal_length > 5.0)
+        df | filter(df.cols['my column'] > 0)  # special characters
+        ```
+        """
+        return Columns(self)
 
 
 class GroupedDataFrame:
@@ -98,8 +118,96 @@ class column:
         name = name.replace('__', ' ')
         return pl.col(name)
 
-# THIS NEEDS TO BE MADE BETTER
 c = column()
+
+
+def _sanitize_col_name(name: str) -> str:
+    """Convert a column name to a valid Python identifier.
+
+    - spaces and hyphens → underscore
+    - remaining non-word characters stripped
+    - leading digit → prefixed with '_'
+    - empty result → '_col'
+    """
+    result = re.sub(r'[\s\-]+', '_', name)
+    result = re.sub(r'[^\w]', '', result)
+    if result and result[0].isdigit():
+        result = '_' + result
+    return result or '_col'
+
+
+class Columns:
+    """Dataset-specific column namespace.
+
+    Returned by :attr:`DataFrame.cols` and injected into the caller's global
+    namespace by :func:`read_csv`. Validates that columns exist at access time
+    and supports tab-completion in Jupyter.
+
+    Attribute access uses sanitized names (spaces/hyphens → underscores);
+    bracket notation uses the original column name:
+
+    ```python
+    df, cols = ...
+    cols.sepal_length       # pl.col('sepal_length')
+    cols['my column']      # pl.col('my column')
+    cols['for']            # pl.col('for') — Python keyword
+    ```
+    """
+
+    def __init__(self, df: 'DataFrame'):
+        object.__setattr__(self, '_df', df)
+        sanitized_map: dict[str, str] = {}
+        collisions: list[str] = []
+        for col in df.columns:
+            sanitized = _sanitize_col_name(col)
+            if sanitized in sanitized_map:
+                collisions.append(
+                    f"  '{col}' → '{sanitized}' conflicts with "
+                    f"'{sanitized_map[sanitized]}'; use df.cols['{col}'] instead"
+                )
+            else:
+                sanitized_map[sanitized] = col
+        object.__setattr__(self, '_sanitized_map', sanitized_map)
+        if collisions:
+            warnings.warn(
+                "Column name collisions after sanitization:\n" + "\n".join(collisions),
+                UserWarning,
+                stacklevel=2,
+            )
+
+    def __getattr__(self, name: str):
+        sanitized_map = object.__getattribute__(self, '_sanitized_map')
+        df = object.__getattribute__(self, '_df')
+        if name in sanitized_map:
+            return pl.col(sanitized_map[name])
+        if name in df.columns:
+            return pl.col(name)
+        raise AttributeError(
+            f"'{name}' is not a column. Available: {list(sanitized_map.keys())}"
+        )
+
+    def __getitem__(self, name: str):
+        df = object.__getattribute__(self, '_df')
+        if name not in df.columns:
+            raise KeyError(
+                f"'{name}' is not a column. Available: {list(df.columns)}"
+            )
+        return pl.col(name)
+
+    def __dir__(self):
+        sanitized_map = object.__getattribute__(self, '_sanitized_map')
+        return list(sanitized_map.keys())
+
+    def __repr__(self):
+        df = object.__getattribute__(self, '_df')
+        sanitized_map = object.__getattribute__(self, '_sanitized_map')
+        lines = [f"Columns({len(df.columns)}):"]
+        for sanitized, original in sanitized_map.items():
+            if sanitized != original:
+                lines.append(f"  .{sanitized}  ← '{original}'")
+            else:
+                lines.append(f"  .{sanitized}")
+        return "\n".join(lines)
 
 
 def _column_name(expr):
@@ -630,15 +738,61 @@ class anti_join(_Join):
     how = "anti"
 
 
-def read_csv(*args, **kwargs):
+def read_csv(*args, inject: bool = True, **kwargs):
     """
-    Reads a csv file into a DataFrame. This is equivalent to, and wrapper of, polars' read_csv method. Returns a dpyr DataFrame. For example:
+    Read a CSV file into a dpyr DataFrame.
+
+    When *inject* is ``True`` (the default), each column name is sanitized to a
+    valid Python identifier and injected into the **caller's global namespace**
+    as a ``pl.col(...)`` expression, enabling R-like bare-name column references:
+
     ```python
-    df = read_csv("test.csv")
+    df = read_csv("iris.csv")
+    df | filter(sepal_length > 5.0) | select(species, sepal_length)
     ```
+
+    Sanitization rules applied to column names before injection:
+
+    - spaces and hyphens become underscores
+    - other non-identifier characters are stripped
+    - names starting with a digit are prefixed with ``_``
+
+    Columns whose sanitized name is a Python keyword, or that would overwrite
+    an existing global variable, are skipped and a ``UserWarning`` is issued.
+    Use ``df.cols['original name']`` to access those columns.
+
+    Pass ``inject=False`` to disable injection entirely and use ``df.cols`` or
+    the global ``c`` object for column references.
     """
     pl_df = pl.read_csv(*args, **kwargs)
-    return DataFrame(pl_df)
+    df = DataFrame(pl_df)
+
+    if inject:
+        frame = inspect.currentframe().f_back
+        caller_globals = frame.f_globals
+
+        skipped: list[tuple[str, str, str]] = []
+        for col in df.columns:
+            sanitized = _sanitize_col_name(col)
+            if keyword.iskeyword(sanitized):
+                skipped.append(
+                    (col, sanitized, f"Python keyword — use df.cols['{col}']")
+                )
+                continue
+            if sanitized in caller_globals:
+                skipped.append((col, sanitized, "already exists in namespace"))
+                continue
+            caller_globals[sanitized] = pl.col(col)
+
+        if skipped:
+            lines = [
+                "The following columns were not injected into the global namespace:"
+            ]
+            for col, sanitized, reason in skipped:
+                lines.append(f"  '{col}' → '{sanitized}': {reason}")
+            warnings.warn("\n".join(lines), UserWarning, stacklevel=2)
+
+    return df
 
 class preview(DataFrameOperation):
     """

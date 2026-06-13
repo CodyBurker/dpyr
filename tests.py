@@ -4,6 +4,8 @@ from pandas._testing import assert_frame_equal
 from dpyr import (
     DataFrame,
     GroupedDataFrame,
+    Columns,
+    _sanitize_col_name,
     filter,
     select,
     mutate,
@@ -335,3 +337,135 @@ class TestDplyrFidelity(unittest.TestCase):
             r=pl.col("a").rank(method="ordinal").cast(pl.Int64)
         )
         compare_dpyr_polars(result, polars_result)
+
+
+class TestSanitizeColName(unittest.TestCase):
+    def test_plain_identifier(self):
+        self.assertEqual(_sanitize_col_name("sepal_length"), "sepal_length")
+
+    def test_spaces_become_underscores(self):
+        self.assertEqual(_sanitize_col_name("my col"), "my_col")
+
+    def test_hyphens_become_underscores(self):
+        self.assertEqual(_sanitize_col_name("a-b"), "a_b")
+
+    def test_leading_digit_prefixed(self):
+        self.assertEqual(_sanitize_col_name("2fast"), "_2fast")
+
+    def test_special_chars_stripped(self):
+        self.assertEqual(_sanitize_col_name("a!b@c"), "abc")
+
+    def test_multiple_spaces_collapsed(self):
+        self.assertEqual(_sanitize_col_name("a  b"), "a_b")
+
+    def test_empty_after_strip_becomes_col(self):
+        self.assertEqual(_sanitize_col_name("!!!"), "_col")
+
+
+class TestColumnsNamespace(unittest.TestCase):
+    def setUp(self):
+        self.df = DataFrame({
+            "sepal_length": [5.1, 4.9, 4.7],
+            "my col": [1.4, 1.4, 1.3],
+            "2fast": [0.2, 0.2, 0.2],
+        })
+        self.cols = self.df.cols
+
+    def test_cols_returns_columns_instance(self):
+        self.assertIsInstance(self.df.cols, Columns)
+
+    def test_attribute_plain_name(self):
+        self.assertEqual(str(self.cols.sepal_length), str(pl.col("sepal_length")))
+
+    def test_attribute_sanitized_space(self):
+        self.assertEqual(str(self.cols.my_col), str(pl.col("my col")))
+
+    def test_attribute_sanitized_leading_digit(self):
+        self.assertEqual(str(self.cols._2fast), str(pl.col("2fast")))
+
+    def test_bracket_original_name(self):
+        self.assertEqual(str(self.cols["my col"]), str(pl.col("my col")))
+
+    def test_attribute_raises_for_missing(self):
+        with self.assertRaises(AttributeError):
+            _ = self.cols.nonexistent
+
+    def test_bracket_raises_for_missing(self):
+        with self.assertRaises(KeyError):
+            _ = self.cols["nonexistent"]
+
+    def test_dir_lists_sanitized_names(self):
+        available = dir(self.cols)
+        self.assertIn("sepal_length", available)
+        self.assertIn("my_col", available)
+        self.assertIn("_2fast", available)
+
+    def test_works_in_filter_pipeline(self):
+        result = self.df | filter(self.cols.sepal_length > 5.0)
+        self.assertEqual(result.height, 1)
+
+    def test_bracket_works_in_pipeline(self):
+        result = self.df | filter(self.cols["my col"] > 1.3)
+        self.assertEqual(result.height, 2)
+
+
+class TestReadCsvInject(unittest.TestCase):
+    _INJECT_COL = "_dpyr_test_unique_injected_xyz"
+    _COLLISION_COL = "_dpyr_test_collision_abc"
+    _TMP_CSV = "/tmp/dpyr_inject_test.csv"
+    _COLLISION_CSV = "/tmp/dpyr_collision_test.csv"
+
+    def setUp(self):
+        import os
+        pl.DataFrame({self._INJECT_COL: [1, 2, 3]}).write_csv(self._TMP_CSV)
+        pl.DataFrame({self._COLLISION_COL: [1, 2, 3]}).write_csv(self._COLLISION_CSV)
+        # Remove the test column from globals if a prior test left it
+        globals().pop(self._INJECT_COL, None)
+
+    def tearDown(self):
+        import os
+        globals().pop(self._INJECT_COL, None)
+        globals().pop(self._COLLISION_COL, None)
+        for f in [self._TMP_CSV, self._COLLISION_CSV]:
+            if os.path.exists(f):
+                os.remove(f)
+
+    def test_inject_true_adds_col_to_globals(self):
+        self.assertNotIn(self._INJECT_COL, globals())
+        read_csv(self._TMP_CSV, inject=True)
+        self.assertIn(self._INJECT_COL, globals())
+        self.assertEqual(str(globals()[self._INJECT_COL]), str(pl.col(self._INJECT_COL)))
+
+    def test_inject_false_does_not_add_to_globals(self):
+        self.assertNotIn(self._INJECT_COL, globals())
+        read_csv(self._TMP_CSV, inject=False)
+        self.assertNotIn(self._INJECT_COL, globals())
+
+    def test_inject_skips_existing_global_with_warning(self):
+        import warnings
+        globals()[self._COLLISION_COL] = "sentinel"
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            read_csv(self._COLLISION_CSV, inject=True)
+        self.assertTrue(any("already exists" in str(warning.message) for warning in w))
+        self.assertEqual(globals()[self._COLLISION_COL], "sentinel")
+
+    def test_inject_skips_python_keywords(self):
+        import warnings
+        tmp_csv = "/tmp/dpyr_keyword_test.csv"
+        pl.DataFrame({"for": [1, 2, 3]}).write_csv(tmp_csv)
+        try:
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                df = read_csv(tmp_csv, inject=True)
+            self.assertTrue(any("keyword" in str(warning.message).lower() for warning in w))
+            # keyword column still accessible via df.cols
+            self.assertEqual(str(df.cols["for"]), str(pl.col("for")))
+        finally:
+            import os
+            if os.path.exists(tmp_csv):
+                os.remove(tmp_csv)
+
+    def test_inject_returns_dataframe(self):
+        df = read_csv(self._TMP_CSV, inject=True)
+        self.assertIsInstance(df, DataFrame)
