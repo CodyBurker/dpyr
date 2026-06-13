@@ -21,17 +21,19 @@ Goals:
 - [x] `select`
 - [x] `filter`
 - [x] `mutate`
-- [ ] `group_by`
-- [ ] `summarize`
+- [x] `group_by`
+- [x] `summarize`
 - [x] `arrange`
-- [ ] `distinct`
-- [ ] `rename`
-- [ ] `count`
+- [x] `distinct`
+- [x] `rename`
+- [x] `count`
 - [x] `head`
-- [ ] `tail`
-- [ ] `sample_n`
-- [ ] `join`
-- [ ] Windows functions? Over, lag, lead, etc.
+- [x] `tail`
+- [x] `sample_n` (`slice_sample`)
+- [x] `join` (`inner_join`, `left_join`, `right_join`, `full_join`, `semi_join`, `anti_join`)
+- [x] Windows functions (`over` via grouped `mutate`, `lag`, `lead`)
+- [x] `ungroup`
+- [x] `pull`
 ### Symbolic column names
 - [x] Initialize column names as variables
 
