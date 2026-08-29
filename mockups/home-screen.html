@@ -158,17 +158,6 @@
   .goodnight:hover{border-color:#4A5578}
   .goodnight svg{width:19px; height:19px; stroke:var(--info); fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
 
-  /* ---------- climate ---------- */
-  .climate{display:flex; align-items:center; justify-content:space-between; gap:12px}
-  .temp-now{display:flex; align-items:baseline; gap:8px}
-  .temp-now b{font-family:var(--display); font-size:44px; font-weight:600; line-height:1; font-variant-numeric:tabular-nums}
-  .temp-now span{color:var(--muted); font-size:13.5px}
-  .setpoint{display:flex; align-items:center; gap:10px}
-  .setpoint .sp{font-size:17px; font-weight:600; font-variant-numeric:tabular-nums; min-width:56px; text-align:center}
-  .setpoint .sp small{display:block; font-size:11px; font-weight:400; color:var(--faint); letter-spacing:.06em; text-transform:uppercase}
-  .climate-link{display:block; margin-top:12px; color:var(--faint); font-size:13px; text-align:left; padding:0}
-  .climate-link:hover{color:var(--muted)}
-
   /* ---------- security ---------- */
   .security{display:grid; gap:14px}
   .sec-row{display:flex; align-items:center; justify-content:space-between; gap:12px}
@@ -299,22 +288,6 @@
         </button>
       </section>
 
-      <!-- R3.3: climate -->
-      <section class="card">
-        <h2>Climate</h2>
-        <div class="climate">
-          <div class="temp-now">
-            <b id="temp-now">71°</b>
-            <span>inside</span>
-          </div>
-          <div class="setpoint">
-            <button class="v-step" id="sp-down" aria-label="Lower setpoint">−</button>
-            <div class="sp"><span id="sp-val">70°</span><small>Set to</small></div>
-            <button class="v-step" id="sp-up" aria-label="Raise setpoint">+</button>
-          </div>
-        </div>
-        <button class="climate-link" id="climate-link">Full climate details →</button>
-      </section>
     </div>
 
     <!-- R4: security -->
@@ -399,7 +372,6 @@ const state = {
   activity: 'off',           // appletv | ps5 | switch | xbox | off
   playing: null,             // { app, title, pos, dur, paused }  — only meaningful for playable sources
   avrVolume: 38,
-  climate: { current: 71, setpoint: 70 },
   lights: {
     dining:  { name:'Dining room', on:false },
     island:  { name:'Kitchen island', on:false },
@@ -609,11 +581,6 @@ function renderLights(){
   });
 }
 
-function renderClimate(){
-  $('temp-now').textContent = state.climate.current + '°';
-  $('sp-val').textContent = state.climate.setpoint + '°';
-}
-
 /* ------------------------------------------------------------------ */
 /* R4 — security                                                       */
 /* ------------------------------------------------------------------ */
@@ -639,7 +606,6 @@ function renderAll(){
   renderActivities();
   renderMediaBody();
   renderLights();
-  renderClimate();
   renderSecurity();
 }
 
@@ -653,9 +619,6 @@ $('goodnight').addEventListener('click', () => {
   toast('Goodnight — lights off, door locked, alarm set to Home');
   renderAll();
 });
-$('sp-down').addEventListener('click', () => { state.climate.setpoint--; renderClimate(); });
-$('sp-up').addEventListener('click', () => { state.climate.setpoint++; renderClimate(); });
-$('climate-link').addEventListener('click', () => toast('Would open the full climate view'));
 $('alarm-seg').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   state.alarm = b.dataset.mode; state.autoArmFailed = false;
