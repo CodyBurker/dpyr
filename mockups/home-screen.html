@@ -1,0 +1,751 @@
+<title>Dusk Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ground:#14161B; --surface:#1C1F26; --surface-2:#242832; --line:#2E333E;
+    --text:#E8EAF0; --muted:#98A0B0; --faint:#6B7280;
+    --accent:#E3A857; --accent-soft:#3A3020; --accent-ink:#1A1206;
+    --alert:#E06A5E; --alert-soft:#3A2523;
+    --info:#7FA8E8; --info-soft:#232C3D;
+    --ok:#79C08F;
+    --radius:14px;
+    --display:'Bricolage Grotesque', Georgia, serif;
+    --body:'Instrument Sans', system-ui, -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{color-scheme:dark}
+  body{
+    margin:0; background:var(--ground); color:var(--text);
+    font-family:var(--body); font-size:15px; line-height:1.4;
+    -webkit-font-smoothing:antialiased; min-height:100vh;
+  }
+  button{font-family:var(--body); color:inherit; background:none; border:none; cursor:pointer; font-size:inherit}
+  button:focus-visible, input:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:6px}
+
+  .shell{max-width:1180px; margin:0 auto; padding:20px 16px 120px}
+
+  /* ---------- header ---------- */
+  .top{display:flex; align-items:baseline; justify-content:space-between; padding:2px 4px 14px}
+  .clock{font-family:var(--display); font-weight:600; font-size:34px; letter-spacing:-.01em; font-variant-numeric:tabular-nums}
+  .clock small{font-size:16px; font-weight:400; color:var(--muted); margin-left:8px}
+  .top-right{color:var(--muted); font-size:14px; text-align:right}
+
+  /* ---------- exceptions strip ---------- */
+  .exceptions{display:flex; flex-wrap:wrap; gap:10px; margin:0 0 18px}
+  .exceptions:empty{display:none}
+  .chip{
+    display:flex; align-items:center; gap:10px; padding:10px 16px 10px 12px;
+    border-radius:999px; border:1px solid var(--line); background:var(--surface);
+    font-size:14.5px; font-weight:500; text-align:left;
+    transition:background .15s, border-color .15s;
+  }
+  .chip:hover{background:var(--surface-2)}
+  .chip .dot{width:8px; height:8px; border-radius:50%; flex:none}
+  .chip .act{color:var(--faint); font-size:13px; margin-left:2px}
+  .chip small{color:var(--muted); font-weight:400}
+  .chip.alert{border-color:#5A3531; background:var(--alert-soft)}
+  .chip.alert .dot{background:var(--alert); box-shadow:0 0 8px 1px rgba(224,106,94,.55)}
+  .chip.info{border-color:#33415C; background:var(--info-soft)}
+  .chip.info .dot{background:var(--info)}
+  .chip.media .dot{background:var(--accent)}
+  .chip.warn{border-color:#4A3B22; background:var(--accent-soft)}
+  .chip.warn .dot{background:var(--accent)}
+
+  /* ---------- cards & grid ---------- */
+  .grid{display:grid; gap:16px; grid-template-columns:1fr}
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    padding:18px;
+  }
+  .card h2{
+    margin:0 0 14px; font-size:12px; font-weight:600; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--faint);
+  }
+
+  /* ---------- media ---------- */
+  .activities{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:8px}
+  .activity{
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    padding:14px 6px 12px; border-radius:12px; border:1px solid var(--line);
+    background:var(--surface-2); font-weight:500; font-size:13.5px; color:var(--muted);
+    transition:all .15s;
+  }
+  .activity svg{width:26px; height:26px; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round}
+  .activity:hover{border-color:#3D4450}
+  .activity.on{background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:600}
+  .btn-off{
+    width:100%; margin-top:8px; padding:12px; border-radius:12px;
+    border:1px solid var(--line); color:var(--muted); font-weight:500; letter-spacing:.02em;
+    transition:all .15s;
+  }
+  .btn-off:hover{border-color:#5A3531; color:var(--alert)}
+  .btn-off.on{background:var(--surface-2); color:var(--text); border-color:#3D4450}
+
+  .now{
+    margin-top:16px; padding:16px; border-radius:12px; background:var(--surface-2);
+    border:1px solid var(--line);
+  }
+  .now-head{display:flex; align-items:center; gap:12px}
+  .now-art{
+    width:46px; height:46px; border-radius:10px; flex:none;
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--display); font-weight:700; font-size:18px;
+    background:var(--accent-soft); color:var(--accent);
+  }
+  .now-meta{min-width:0; flex:1}
+  .now-title{font-family:var(--display); font-weight:600; font-size:17px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .now-sub{color:var(--muted); font-size:13.5px; margin-top:1px}
+  .btn-remote{
+    flex:none; padding:9px 14px; border-radius:10px; border:1px solid var(--line);
+    font-weight:500; font-size:13.5px; color:var(--text); background:var(--surface);
+  }
+  .btn-remote:hover{border-color:var(--accent); color:var(--accent)}
+
+  .progress{margin-top:14px}
+  .bar{height:4px; border-radius:2px; background:#333947; overflow:hidden}
+  .bar i{display:block; height:100%; background:var(--accent); border-radius:2px}
+  .times{display:flex; justify-content:space-between; color:var(--faint); font-size:12px; margin-top:5px; font-variant-numeric:tabular-nums}
+
+  .transport{display:flex; justify-content:center; align-items:center; gap:26px; margin-top:10px}
+  .t-btn{width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--text)}
+  .t-btn:hover{background:var(--surface)}
+  .t-btn svg{width:22px; height:22px; fill:currentColor}
+  .t-btn.play{width:58px; height:58px; background:var(--text); color:var(--ground)}
+  .t-btn.play:hover{background:#fff}
+  .t-btn.play svg{width:26px; height:26px}
+
+  .volume{margin-top:16px; display:flex; align-items:center; gap:12px}
+  .volume .v-label{display:flex; align-items:baseline; gap:6px; flex:none; width:74px}
+  .volume .v-label b{font-size:19px; font-weight:600; font-variant-numeric:tabular-nums}
+  .volume .v-label span{color:var(--faint); font-size:12px}
+  .v-step{
+    flex:none; width:40px; height:40px; border-radius:10px; border:1px solid var(--line);
+    background:var(--surface-2); font-size:20px; font-weight:500; color:var(--text);
+  }
+  .v-step:hover{border-color:#3D4450; background:#2A2F3A}
+  input[type=range]{
+    flex:1; appearance:none; -webkit-appearance:none; height:28px; background:transparent; margin:0; min-width:60px;
+  }
+  input[type=range]::-webkit-slider-runnable-track{height:6px; border-radius:3px; background:linear-gradient(to right, var(--accent) var(--fill,38%), #333947 var(--fill,38%))}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:#fff; margin-top:-6px; box-shadow:0 1px 4px rgba(0,0,0,.5)}
+  input[type=range]::-moz-range-track{height:6px; border-radius:3px; background:#333947}
+  input[type=range]::-moz-range-progress{height:6px; border-radius:3px; background:var(--accent)}
+  input[type=range]::-moz-range-thumb{width:18px; height:18px; border:none; border-radius:50%; background:#fff}
+
+  .media-idle{margin-top:16px; padding:22px 16px; text-align:center; color:var(--faint); font-size:14px;
+    border:1px dashed var(--line); border-radius:12px}
+
+  /* ---------- lights ---------- */
+  .lights{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+  .light{
+    display:flex; flex-direction:column; align-items:flex-start; gap:10px;
+    padding:14px 12px; border-radius:12px; border:1px solid var(--line);
+    background:var(--surface-2); text-align:left; transition:all .15s;
+  }
+  .light svg{width:22px; height:22px; stroke:var(--muted); fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round}
+  .light .l-name{font-weight:500; font-size:13.5px; line-height:1.25}
+  .light .l-state{font-size:12px; color:var(--faint)}
+  .light.on{background:var(--accent-soft); border-color:#5C4A26}
+  .light.on svg{stroke:var(--accent); filter:drop-shadow(0 0 5px rgba(227,168,87,.6))}
+  .light.on .l-state{color:var(--accent)}
+  .goodnight{
+    margin-top:12px; width:100%; padding:15px; border-radius:12px;
+    background:linear-gradient(135deg,#232838,#1B1F2C); border:1px solid #333B52;
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    font-weight:600; font-size:15px; letter-spacing:.01em;
+  }
+  .goodnight:hover{border-color:#4A5578}
+  .goodnight svg{width:19px; height:19px; stroke:var(--info); fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+
+  /* ---------- climate ---------- */
+  .climate{display:flex; align-items:center; justify-content:space-between; gap:12px}
+  .temp-now{display:flex; align-items:baseline; gap:8px}
+  .temp-now b{font-family:var(--display); font-size:44px; font-weight:600; line-height:1; font-variant-numeric:tabular-nums}
+  .temp-now span{color:var(--muted); font-size:13.5px}
+  .setpoint{display:flex; align-items:center; gap:10px}
+  .setpoint .sp{font-size:17px; font-weight:600; font-variant-numeric:tabular-nums; min-width:56px; text-align:center}
+  .setpoint .sp small{display:block; font-size:11px; font-weight:400; color:var(--faint); letter-spacing:.06em; text-transform:uppercase}
+  .climate-link{display:block; margin-top:12px; color:var(--faint); font-size:13px; text-align:left; padding:0}
+  .climate-link:hover{color:var(--muted)}
+
+  /* ---------- security ---------- */
+  .security{display:grid; gap:14px}
+  .sec-row{display:flex; align-items:center; justify-content:space-between; gap:12px}
+  .sec-name{font-weight:500}
+  .sec-name small{display:block; font-weight:400; color:var(--faint); font-size:12.5px; margin-top:1px}
+  .seg{display:flex; background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:3px}
+  .seg button{padding:8px 16px; border-radius:8px; font-weight:500; font-size:13.5px; color:var(--muted)}
+  .seg button.on{background:var(--text); color:var(--ground); font-weight:600}
+  .seg button.on.armed{background:var(--accent); color:var(--accent-ink)}
+  .seg button.on.locked{background:var(--ok); color:#0E2015}
+
+  /* ---------- toast ---------- */
+  .toast{
+    position:fixed; left:50%; bottom:84px; transform:translateX(-50%) translateY(16px);
+    background:#0E1014; border:1px solid var(--line); color:var(--text);
+    padding:11px 18px; border-radius:10px; font-size:14px; opacity:0; pointer-events:none;
+    transition:all .25s; z-index:60; box-shadow:0 8px 24px rgba(0,0,0,.5); white-space:nowrap;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+  /* ---------- full remote overlay ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(10,11,14,.72); backdrop-filter:blur(6px);
+    display:none; align-items:center; justify-content:center; z-index:50; padding:20px;
+  }
+  .overlay.show{display:flex}
+  .remote{
+    width:280px; background:var(--surface); border:1px solid var(--line); border-radius:24px;
+    padding:22px 20px; box-shadow:0 24px 60px rgba(0,0,0,.6);
+  }
+  .remote h3{margin:0 0 4px; font-family:var(--display); font-size:17px; font-weight:600}
+  .remote .r-sub{color:var(--faint); font-size:12.5px; margin-bottom:18px}
+  .dpad{
+    position:relative; width:200px; height:200px; margin:0 auto 18px; border-radius:50%;
+    background:var(--surface-2); border:1px solid var(--line);
+  }
+  .dpad button{position:absolute; width:60px; height:60px; color:var(--muted); font-size:18px}
+  .dpad .up{top:2px; left:70px} .dpad .down{bottom:2px; left:70px}
+  .dpad .left{left:2px; top:70px} .dpad .right{right:2px; top:70px}
+  .dpad .ok-btn{
+    top:60px; left:60px; width:80px; height:80px; border-radius:50%;
+    background:var(--surface); border:1px solid var(--line); color:var(--text); font-weight:600; font-size:14px;
+  }
+  .dpad button:hover{color:var(--text)}
+  .remote-row{display:flex; justify-content:space-between; gap:8px}
+  .remote-row button{
+    flex:1; padding:12px 0; border-radius:12px; background:var(--surface-2);
+    border:1px solid var(--line); color:var(--muted); font-size:13px; font-weight:500;
+  }
+  .remote-row button:hover{color:var(--text)}
+  .remote-close{width:100%; margin-top:14px; padding:11px; border-radius:12px; color:var(--faint); font-size:13.5px}
+  .remote-close:hover{color:var(--text)}
+
+  /* ---------- demo drawer (mockup scaffolding) ---------- */
+  .demo-fab{
+    position:fixed; right:16px; bottom:16px; z-index:40;
+    padding:10px 16px; border-radius:999px; font-size:13px; font-weight:500;
+    background:#0E1014; color:var(--muted); border:1px dashed #4A5160;
+  }
+  .demo-fab:hover{color:var(--text)}
+  .demo{
+    position:fixed; right:16px; bottom:64px; z-index:40; width:290px;
+    background:#0E1014; border:1px dashed #4A5160; border-radius:14px; padding:16px;
+    display:none; max-height:70vh; overflow-y:auto;
+  }
+  .demo.show{display:block}
+  .demo h3{margin:0 0 2px; font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint)}
+  .demo p{margin:0 0 12px; font-size:12px; color:var(--faint)}
+  .demo label{display:flex; align-items:center; gap:9px; padding:7px 0; font-size:13.5px; color:var(--muted); cursor:pointer}
+  .demo label:hover{color:var(--text)}
+  .demo input{accent-color:var(--accent); width:15px; height:15px}
+  .demo .demo-sep{border-top:1px solid #22262E; margin:8px 0}
+  .demo .demo-note{font-size:11.5px; color:#565D6B; margin-top:2px; padding-left:24px}
+
+  /* ---------- tablet layout ---------- */
+  @media (min-width:920px){
+    .shell{padding:28px 28px 60px}
+    .clock{font-size:40px}
+    .grid{
+      grid-template-columns:7fr 5fr;
+      grid-template-areas:
+        "media everyday"
+        "media security";
+      align-items:start;
+    }
+    #card-media{grid-area:media}
+    #col-everyday{grid-area:everyday; display:grid; gap:16px}
+    #card-security{grid-area:security}
+    .activities{grid-template-columns:repeat(4,1fr)}
+  }
+  @media (max-width:400px){
+    .activities{grid-template-columns:repeat(2,1fr)}
+    .lights{grid-template-columns:repeat(3,1fr)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none !important}
+  }
+</style>
+
+<div class="shell">
+
+  <header class="top">
+    <div class="clock" id="clock">9:41<small id="ampm">PM</small></div>
+    <div class="top-right" id="date-line">Friday, Aug 29</div>
+  </header>
+
+  <!-- R1: exception strip — empty (and hidden) when the house is at baseline -->
+  <div class="exceptions" id="exceptions" aria-live="polite"></div>
+
+  <div class="grid">
+
+    <!-- R2: media -->
+    <section class="card" id="card-media">
+      <h2>Media</h2>
+      <div class="activities" id="activities"></div>
+      <button class="btn-off" id="btn-off">Turn everything off</button>
+      <div id="media-body"></div>
+    </section>
+
+    <div id="col-everyday">
+      <!-- R3.1/R3.2: lights + goodnight -->
+      <section class="card">
+        <h2>Lights</h2>
+        <div class="lights" id="lights"></div>
+        <button class="goodnight" id="goodnight">
+          <svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.6 6.6 0 0 0 21 12.8Z"/></svg>
+          Goodnight
+        </button>
+      </section>
+
+      <!-- R3.3: climate -->
+      <section class="card">
+        <h2>Climate</h2>
+        <div class="climate">
+          <div class="temp-now">
+            <b id="temp-now">71°</b>
+            <span>inside</span>
+          </div>
+          <div class="setpoint">
+            <button class="v-step" id="sp-down" aria-label="Lower setpoint">−</button>
+            <div class="sp"><span id="sp-val">70°</span><small>Set to</small></div>
+            <button class="v-step" id="sp-up" aria-label="Raise setpoint">+</button>
+          </div>
+        </div>
+        <button class="climate-link" id="climate-link">Full climate details →</button>
+      </section>
+    </div>
+
+    <!-- R4: security -->
+    <section class="card" id="card-security">
+      <h2>Security</h2>
+      <div class="security">
+        <div class="sec-row">
+          <div class="sec-name">Alarm<small id="alarm-sub">Disarmed</small></div>
+          <div class="seg" id="alarm-seg">
+            <button data-mode="disarmed">Off</button>
+            <button data-mode="home">Home</button>
+            <button data-mode="away">Away</button>
+          </div>
+        </div>
+        <div class="sec-row">
+          <div class="sec-name">Front door<small id="door-sub">Locked</small></div>
+          <div class="seg" id="door-seg">
+            <button data-lock="unlocked">Unlock</button>
+            <button data-lock="locked">Lock</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- full remote overlay (R2.4 path to finer control) -->
+<div class="overlay" id="overlay">
+  <div class="remote" role="dialog" aria-label="Full remote">
+    <h3 id="remote-title">Apple TV remote</h3>
+    <div class="r-sub" id="remote-sub">Living room</div>
+    <div class="dpad">
+      <button class="up" aria-label="Up">▲</button>
+      <button class="down" aria-label="Down">▼</button>
+      <button class="left" aria-label="Left">◀</button>
+      <button class="right" aria-label="Right">▶</button>
+      <button class="ok-btn">OK</button>
+    </div>
+    <div class="remote-row">
+      <button>Back</button><button>Home</button><button>Play ⏯</button>
+    </div>
+    <button class="remote-close" id="remote-close">Close</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- demo scaffolding: simulates state changes arriving from outside this page -->
+<button class="demo-fab" id="demo-fab">⚙ Demo scenarios</button>
+<div class="demo" id="demo">
+  <h3>Demo scenarios</h3>
+  <p>Mockup-only. Simulates state changing outside this page.</p>
+  <label><input type="checkbox" data-sim="jess-away"> Jess leaves for work</label>
+  <label><input type="checkbox" data-sim="pet-away"> Waffles is at the vet</label>
+  <label><input type="checkbox" data-sim="door-unlocked"> Front door left unlocked</label>
+  <label><input type="checkbox" data-sim="robot-running"> Vacuum starts cleaning</label>
+  <label><input type="checkbox" data-sim="robot-stranded"> Vacuum stranded off dock</label>
+  <label><input type="checkbox" data-sim="everyone-away"> Everyone leaves, auto-arm fails</label>
+  <div class="demo-note">Alarm stays disarmed while house is empty → exception</div>
+  <div class="demo-sep"></div>
+  <label><input type="checkbox" data-sim="netflix"> Netflix starts on Apple TV</label>
+  <label><input type="checkbox" data-sim="siri-ps5"> Someone switches to PS5 with the controller</label>
+  <div class="demo-note">Activity indicator updates even though this page didn't do it (R2.2)</div>
+</div>
+
+<script>
+/* ------------------------------------------------------------------ */
+/* State — in the real dashboard every field maps to an HA entity,     */
+/* script, or the activity selector; this page holds no logic (R5.2). */
+/* ------------------------------------------------------------------ */
+const state = {
+  people: [
+    { id:'cody', name:'Cody', kind:'person', home:true, where:null },
+    { id:'jess', name:'Jess', kind:'person', home:true, where:null },
+    { id:'waffles', name:'Waffles', kind:'pet', home:true, where:null },
+  ],
+  door: 'locked',            // locked | unlocked
+  alarm: 'disarmed',         // disarmed | home | away
+  autoArmFailed: false,
+  robot: { name:'Vacuum', status:'docked', where:null }, // docked | cleaning | stranded
+  activity: 'off',           // appletv | ps5 | switch | xbox | off
+  playing: null,             // { app, title, pos, dur, paused }  — only meaningful for playable sources
+  avrVolume: 38,
+  climate: { current: 71, setpoint: 70 },
+  lights: {
+    dining:  { name:'Dining room', on:false },
+    island:  { name:'Kitchen island', on:false },
+    ceiling: { name:'Kitchen ceiling', on:false },
+  },
+};
+
+const ACTIVITIES = [
+  { id:'appletv', name:'Apple TV', icon:'M5 7h14v10H5z M9 20h6', hasTransport:true },
+  { id:'ps5',     name:'PS5',      icon:'M6 12h4 M8 10v4 M15 11h.01 M17 13h.01 M4 8h16v8H4z', hasTransport:false },
+  { id:'switch',  name:'Switch',   icon:'M8 4h3v16H8a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4z M13 4h3a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4h-3z M8.5 9h.01 M15.5 15h.01', hasTransport:false },
+  { id:'xbox',    name:'Xbox 360', icon:'M12 21a9 9 0 1 0-9-9 9 9 0 0 0 9 9z M7 7c3 2 7 8 10 10 M17 7c-3 2-7 8-10 10', hasTransport:false },
+];
+const actById = id => ACTIVITIES.find(a => a.id === id);
+
+const $ = id => document.getElementById(id);
+const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
+
+let toastTimer;
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function fmtTime(s){ return Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0'); }
+
+/* ------------------------------------------------------------------ */
+/* R1 — exception strip                                                */
+/* ------------------------------------------------------------------ */
+function renderExceptions(){
+  const box = $('exceptions'); box.innerHTML = '';
+  const add = (cls, dotless, html, action, onTap) => {
+    const c = el('button', 'chip ' + cls,
+      (dotless ? '' : '<span class="dot"></span>') + html + (action ? `<span class="act">${action} ›</span>` : ''));
+    c.addEventListener('click', onTap);
+    box.appendChild(c);
+  };
+
+  // away household members (people + pets)
+  state.people.filter(p => !p.home).forEach(p => {
+    add('info', false, `${p.name} <small>· ${p.where || 'Away'}</small>`, null,
+      () => toast(`${p.name} — last seen ${p.where || 'away'} (would open location detail)`));
+  });
+
+  // front door unlocked
+  if (state.door === 'unlocked'){
+    add('alert', false, 'Front door unlocked', 'Lock', () => { state.door = 'locked'; toast('Front door locked'); renderAll(); });
+  }
+
+  // alarm inconsistent with occupancy
+  const anyoneHome = state.people.some(p => p.kind === 'person' && p.home);
+  if (anyoneHome && state.alarm === 'away'){
+    add('warn', false, 'Alarm armed Away <small>· you’re home</small>', 'Disarm',
+      () => { state.alarm = 'disarmed'; toast('Alarm disarmed'); renderAll(); });
+  } else if (!anyoneHome && state.alarm === 'disarmed'){
+    add('alert', false, 'Alarm didn’t arm <small>· house is empty</small>', 'Arm Away',
+      () => { state.alarm = 'away'; state.autoArmFailed = false; toast('Alarm armed Away'); renderAll(); });
+  }
+
+  // cleaning robot
+  if (state.robot.status === 'cleaning'){
+    add('info', false, `${state.robot.name} cleaning <small>· ${state.robot.where}</small>`, 'Send home',
+      () => { state.robot.status = 'docked'; toast(`${state.robot.name} returning to dock`); renderAll(); });
+  } else if (state.robot.status === 'stranded'){
+    add('alert', false, `${state.robot.name} stranded <small>· ${state.robot.where}</small>`, 'Retry dock',
+      () => { state.robot.status = 'docked'; toast(`${state.robot.name} heading home`); renderAll(); });
+  }
+
+  // media awareness (R1.3/R1.4): what's on, and via which source
+  if (state.activity !== 'off'){
+    const a = actById(state.activity);
+    const label = state.playing
+      ? `${state.playing.title} <small>· ${state.playing.app} on ${a.name}</small>`
+      : `TV on <small>· ${a.name}</small>`;
+    add('media', false, label, 'Remote', () => {
+      $('card-media').scrollIntoView({ behavior:'smooth', block:'nearest' });
+      openRemote();
+    });
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* R2 — media                                                          */
+/* ------------------------------------------------------------------ */
+function renderActivities(){
+  const box = $('activities'); box.innerHTML = '';
+  ACTIVITIES.forEach(a => {
+    const b = el('button', 'activity' + (state.activity === a.id ? ' on' : ''),
+      `<svg viewBox="0 0 24 24"><path d="${a.icon}"/></svg><span>${a.name}</span>`);
+    b.setAttribute('aria-pressed', state.activity === a.id);
+    b.addEventListener('click', () => setActivity(a.id, 'panel'));
+    box.appendChild(b);
+  });
+  $('btn-off').classList.toggle('on', false);
+}
+
+function setActivity(id, source){
+  if (state.activity === id) return;
+  state.activity = id;
+  if (id === 'off'){
+    state.playing = null;
+  } else if (id === 'appletv'){
+    // keep existing playback if resuming apple tv via demo; otherwise idle
+    if (!state.playing || state.playing.src !== 'appletv') state.playing = null;
+  } else {
+    state.playing = null; // consoles: no transport-level metadata (R2.6)
+  }
+  if (source === 'panel') toast(id === 'off' ? 'Turning everything off…' : `Switching to ${actById(id).name}…`);
+  renderAll();
+}
+
+function renderMediaBody(){
+  const box = $('media-body'); box.innerHTML = '';
+
+  if (state.activity === 'off'){
+    box.appendChild(el('div', 'media-idle', 'Everything is off'));
+    return; // volume is irrelevant when the AVR is off (R2.5)
+  }
+
+  const a = actById(state.activity);
+  const now = el('div', 'now');
+
+  if (a.hasTransport && state.playing){
+    const p = state.playing;
+    now.appendChild(el('div', 'now-head', `
+      <div class="now-art">${p.app[0]}</div>
+      <div class="now-meta">
+        <div class="now-title">${p.title}</div>
+        <div class="now-sub">${p.app} on ${a.name}</div>
+      </div>
+      <button class="btn-remote" id="open-remote">Remote</button>`));
+    const pct = Math.round(p.pos / p.dur * 100);
+    now.appendChild(el('div', 'progress', `
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="times"><span>${fmtTime(p.pos)}</span><span>−${fmtTime(p.dur - p.pos)}</span></div>`));
+    const tr = el('div', 'transport', `
+      <button class="t-btn" id="t-back" aria-label="Back 10 seconds"><svg viewBox="0 0 24 24"><path d="M11 5 3 12l8 7v-5.5L19 19V5l-8 5.5z"/></svg></button>
+      <button class="t-btn play" id="t-play" aria-label="${p.paused ? 'Play' : 'Pause'}">${p.paused
+        ? '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>'
+        : '<svg viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>'}</button>
+      <button class="t-btn" id="t-fwd" aria-label="Forward 10 seconds"><svg viewBox="0 0 24 24"><path d="m13 5 8 7-8 7v-5.5L5 19V5l8 5.5z"/></svg></button>`);
+    now.appendChild(tr);
+  } else {
+    // active but nothing "playing": show source, offer remote, no dead transport (R2.6)
+    const sub = a.hasTransport ? 'Idle — nothing playing' : 'Console active · use the controller';
+    now.appendChild(el('div', 'now-head', `
+      <div class="now-art">${a.name[0]}</div>
+      <div class="now-meta">
+        <div class="now-title">${a.name}</div>
+        <div class="now-sub">${sub}</div>
+      </div>
+      <button class="btn-remote" id="open-remote">Remote</button>`));
+  }
+
+  // R2.5 — volume always targets the AVR, whichever activity is up
+  now.appendChild(el('div', 'volume', `
+    <div class="v-label"><b id="vol-val">${state.avrVolume}</b><span>AVR</span></div>
+    <button class="v-step" id="vol-down" aria-label="Volume down">−</button>
+    <input type="range" id="vol-slider" min="0" max="100" value="${state.avrVolume}" aria-label="Set AVR volume" style="--fill:${state.avrVolume}%">
+    <button class="v-step" id="vol-up" aria-label="Volume up">+</button>`));
+
+  box.appendChild(now);
+
+  // wire up
+  const remoteBtn = now.querySelector('#open-remote');
+  if (remoteBtn) remoteBtn.addEventListener('click', openRemote);
+  const tPlay = now.querySelector('#t-play');
+  if (tPlay){
+    tPlay.addEventListener('click', () => { state.playing.paused = !state.playing.paused; renderAll(); });
+    now.querySelector('#t-back').addEventListener('click', () => { state.playing.pos = Math.max(0, state.playing.pos - 10); renderAll(); });
+    now.querySelector('#t-fwd').addEventListener('click', () => { state.playing.pos = Math.min(state.playing.dur, state.playing.pos + 10); renderAll(); });
+  }
+  now.querySelector('#vol-down').addEventListener('click', () => setVolume(state.avrVolume - 2));
+  now.querySelector('#vol-up').addEventListener('click', () => setVolume(state.avrVolume + 2));
+  const slider = now.querySelector('#vol-slider');
+  slider.addEventListener('input', e => setVolume(+e.target.value, true));
+}
+
+function setVolume(v, fromSlider){
+  state.avrVolume = Math.max(0, Math.min(100, v));
+  const val = document.getElementById('vol-val');
+  const slider = document.getElementById('vol-slider');
+  if (val) val.textContent = state.avrVolume;
+  if (slider){ slider.value = state.avrVolume; slider.style.setProperty('--fill', state.avrVolume + '%'); }
+}
+
+function openRemote(){
+  if (state.activity === 'off') return;
+  const a = actById(state.activity);
+  $('remote-title').textContent = a.name + ' remote';
+  $('overlay').classList.add('show');
+}
+
+/* ------------------------------------------------------------------ */
+/* R3 — lights, goodnight, climate                                     */
+/* ------------------------------------------------------------------ */
+function renderLights(){
+  const box = $('lights'); box.innerHTML = '';
+  Object.entries(state.lights).forEach(([key, l]) => {
+    const b = el('button', 'light' + (l.on ? ' on' : ''), `
+      <svg viewBox="0 0 24 24"><path d="M9 18h6 M10 21h4 M12 3a6 6 0 0 0-3.5 10.8c.7.6 1 1.3 1 2.2h5c0-.9.3-1.6 1-2.2A6 6 0 0 0 12 3z"/></svg>
+      <span class="l-name">${l.name}</span>
+      <span class="l-state">${l.on ? 'On' : 'Off'}</span>`);
+    b.setAttribute('aria-pressed', l.on);
+    b.addEventListener('click', () => { l.on = !l.on; renderLights(); });
+    box.appendChild(b);
+  });
+}
+
+function renderClimate(){
+  $('temp-now').textContent = state.climate.current + '°';
+  $('sp-val').textContent = state.climate.setpoint + '°';
+}
+
+/* ------------------------------------------------------------------ */
+/* R4 — security                                                       */
+/* ------------------------------------------------------------------ */
+const ALARM_LABEL = { disarmed:'Disarmed', home:'Armed · Home', away:'Armed · Away' };
+function renderSecurity(){
+  $('alarm-sub').textContent = ALARM_LABEL[state.alarm] + (state.autoArmFailed && state.alarm === 'disarmed' ? ' · auto-arm failed' : '');
+  document.querySelectorAll('#alarm-seg button').forEach(b => {
+    const on = b.dataset.mode === state.alarm;
+    b.className = on ? 'on' + (state.alarm !== 'disarmed' ? ' armed' : '') : '';
+    b.setAttribute('aria-pressed', on);
+  });
+  $('door-sub').textContent = state.door === 'locked' ? 'Locked' : 'Unlocked';
+  document.querySelectorAll('#door-seg button').forEach(b => {
+    const on = b.dataset.lock === state.door;
+    b.className = on ? 'on' + (state.door === 'locked' ? ' locked' : '') : '';
+    b.setAttribute('aria-pressed', on);
+  });
+}
+
+/* ------------------------------------------------------------------ */
+function renderAll(){
+  renderExceptions();
+  renderActivities();
+  renderMediaBody();
+  renderLights();
+  renderClimate();
+  renderSecurity();
+}
+
+/* ---------- static wiring ---------- */
+$('btn-off').addEventListener('click', () => setActivity('off', 'panel'));
+$('goodnight').addEventListener('click', () => {
+  Object.values(state.lights).forEach(l => l.on = false);
+  state.door = 'locked';
+  state.alarm = 'home';
+  setActivity('off', 'silent');
+  toast('Goodnight — lights off, door locked, alarm set to Home');
+  renderAll();
+});
+$('sp-down').addEventListener('click', () => { state.climate.setpoint--; renderClimate(); });
+$('sp-up').addEventListener('click', () => { state.climate.setpoint++; renderClimate(); });
+$('climate-link').addEventListener('click', () => toast('Would open the full climate view'));
+$('alarm-seg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  state.alarm = b.dataset.mode; state.autoArmFailed = false;
+  toast(state.alarm === 'disarmed' ? 'Alarm disarmed' : `Alarm armed ${b.textContent}`);
+  renderAll();
+});
+$('door-seg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  state.door = b.dataset.lock;
+  toast(state.door === 'locked' ? 'Front door locked' : 'Front door unlocked');
+  renderAll();
+});
+$('remote-close').addEventListener('click', () => $('overlay').classList.remove('show'));
+$('overlay').addEventListener('click', e => { if (e.target === $('overlay')) $('overlay').classList.remove('show'); });
+
+/* ---------- clock ---------- */
+function tickClock(){
+  const d = new Date();
+  let h = d.getHours(); const am = h < 12 ? 'AM' : 'PM'; h = h % 12 || 12;
+  $('clock').innerHTML = `${h}:${String(d.getMinutes()).padStart(2,'0')}<small id="ampm">${am}</small>`;
+  $('date-line').textContent = d.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' });
+}
+tickClock(); setInterval(tickClock, 15000);
+
+/* ---------- playback ticker ---------- */
+setInterval(() => {
+  if (state.playing && !state.playing.paused){
+    state.playing.pos = Math.min(state.playing.dur, state.playing.pos + 1);
+    const bar = document.querySelector('.bar i');
+    const times = document.querySelector('.times');
+    if (bar){ bar.style.width = Math.round(state.playing.pos / state.playing.dur * 100) + '%'; }
+    if (times){ times.innerHTML = `<span>${fmtTime(state.playing.pos)}</span><span>−${fmtTime(state.playing.dur - state.playing.pos)}</span>`; }
+  }
+}, 1000);
+
+/* ------------------------------------------------------------------ */
+/* Demo scaffolding                                                    */
+/* ------------------------------------------------------------------ */
+$('demo-fab').addEventListener('click', () => $('demo').classList.toggle('show'));
+document.querySelectorAll('.demo input').forEach(cb => {
+  cb.addEventListener('change', () => applySim(cb.dataset.sim, cb.checked));
+});
+
+function applySim(sim, on){
+  const jess = state.people.find(p => p.id === 'jess');
+  const cody = state.people.find(p => p.id === 'cody');
+  const waffles = state.people.find(p => p.id === 'waffles');
+  switch (sim){
+    case 'jess-away':
+      jess.home = !on; jess.where = on ? 'Work' : null; break;
+    case 'pet-away':
+      waffles.home = !on; waffles.where = on ? 'Vet' : null; break;
+    case 'door-unlocked':
+      state.door = on ? 'unlocked' : 'locked'; break;
+    case 'robot-running':
+      state.robot.status = on ? 'cleaning' : 'docked'; state.robot.where = on ? 'Kitchen' : null;
+      if (on) document.querySelector('[data-sim="robot-stranded"]').checked = false;
+      break;
+    case 'robot-stranded':
+      state.robot.status = on ? 'stranded' : 'docked'; state.robot.where = on ? 'Under the couch' : null;
+      if (on) document.querySelector('[data-sim="robot-running"]').checked = false;
+      break;
+    case 'everyone-away':
+      cody.home = !on; cody.where = on ? 'Office' : null;
+      jess.home = !on; jess.where = on ? 'Work' : null;
+      document.querySelector('[data-sim="jess-away"]').checked = on;
+      state.autoArmFailed = on;
+      if (!on) state.alarm = 'disarmed';
+      break;
+    case 'netflix':
+      if (on){
+        state.activity = 'appletv';
+        state.playing = { src:'appletv', app:'Netflix', title:'The Diplomat · S2 E4', pos:754, dur:2940, paused:false };
+        document.querySelector('[data-sim="siri-ps5"]').checked = false;
+      } else if (state.activity === 'appletv'){
+        state.playing = null; state.activity = 'off';
+      }
+      break;
+    case 'siri-ps5':
+      if (on){
+        state.activity = 'ps5'; state.playing = null;
+        document.querySelector('[data-sim="netflix"]').checked = false;
+      } else if (state.activity === 'ps5'){
+        state.activity = 'off';
+      }
+      break;
+  }
+  // door-unlock sim shouldn't fight the sync checkboxes if user locks via chip; fine for a mockup
+  renderAll();
+}
+
+renderAll();
+</script>
